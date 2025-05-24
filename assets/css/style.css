@@ -1,0 +1,49 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  header, footer, section {
+    padding: 20px;
+  }
+  
+  .hero {
+    position: relative;
+    text-align: center;
+  }
+  
+  .hero img {
+    width: 100%;
+    height: auto;
+  }
+  
+  .hero-buttons {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .hero-buttons button {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+  
+  .our-cars {
+    background-color: #f5f5f5;
+  }
+  
+  .car-card {
+    display: inline-block;
+    margin: 10px;
+    width: 200px;
+  }
+  
+  footer {
+    background-color: #333;
+    color: white;
+    text-align: center;
+  }
+  
