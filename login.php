@@ -140,6 +140,12 @@ if (isset($_POST['login'])) {
         exit;
     }
 
+    // Check if account is locked
+    if (isAccountLocked($conn, $email)) {
+        echo "<script>alert('Account locked. Please try again after 5 minutes.');</script>";
+        exit;
+    }
+
     // Fetch user from the database
     $stmt = $conn->prepare("SELECT * FROM tblusers WHERE EmailId = :email");
     $stmt->bindParam(':email', $email);
@@ -353,8 +359,8 @@ if (isset($_POST['register'])) {
         #registerform input[type='email'],
         #registerform input[type='password'],
         #registerform input[type='date'] {
-            margin-bottom: 16px;
-            padding: 12px 14px;
+            margin-bottom: 13px;
+            padding: 10px 14px;
             border-radius: 8px;
             border: 1px solid #ddd;
             font-size: 1.1rem;
@@ -382,6 +388,80 @@ if (isset($_POST['register'])) {
         .modern-login-btn:hover {
             background: linear-gradient(90deg, #4B3F72 0%, #6a82fb 100%);
         }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .password-strength-meter {
+            height: 5px;
+            background: #eee;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+        
+        #password-strength-bar {
+            height: 100%;
+            background: transparent;
+            border-radius: 8px;
+            transition: width 0.3s ease;
+        }
+        
+        .password-requirements {
+            font-size: 0.85rem;
+            color: #7a7a7a;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+        
+        .requirements-list {
+            margin-top: 8px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        
+        .requirements-list .requirement {
+            font-size: 0.85rem;
+            color: #7a7a7a;
+            margin-bottom: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+        
+        .requirements-list .requirement:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .password-requirements span {
+            display: block;
+            margin: 2px 0;
+        }
+        
+        .password-requirements span[style*='color: #33cc33'] {
+            color: #33cc33;
+        }
+        
+        .password-requirements span[style*='color: #f00'] {
+            color: #f00;
+        }
+        
+        .form-group input[type='password'] {
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1.1rem;
+            outline: none;
+            transition: border 0.2s;
+            width: 100%;
+        }
+        
+        .form-group input[type='password']:focus {
+            border: 1.5px solid #6a82fb;
+        }
         @media (max-width: 700px) {
             .modern-login-content { flex-direction: column; }
             .modern-login-left, .modern-login-right { padding: 24px 12px; }
@@ -392,7 +472,7 @@ if (isset($_POST['register'])) {
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 700px;
+            width: 500px;
             min-height: 500px;
             max-width: 95vw;
         }
@@ -420,12 +500,10 @@ if (isset($_POST['register'])) {
     <div class="modern-login-right">
       <form method="post">
         <h3 style="margin-bottom: 18px; color: #4B3F72;">Login your account</h3>
+        <p style="margin-bottom: 10px; color: #7a7a7a;">Enter your credentials to access your account</p>
         <input type="email" name="email" placeholder="Username" required value="<?php echo isset($_SESSION['last_login_email']) ? htmlspecialchars($_SESSION['last_login_email']) : ''; ?>">
         <input type="password" name="password" placeholder="Password" required>
-        <?php if ($show_captcha): ?>
-        <!-- Show reCAPTCHA only after 3 failed attempts -->
         <div class="g-recaptcha" data-sitekey="<?php echo $recaptcha_site_key; ?>" style="margin: 10px 0;"></div>
-        <?php endif; ?>
         <a href="#" style="font-size: 0.95rem; color: #7a7a7a; float:right; margin-bottom: 10px;">Forgot password?</a>
         <input type="submit" name="login" value="Login" class="modern-login-btn">
         <div style="margin-top: 18px; text-align: center;">
@@ -441,14 +519,24 @@ if (isset($_POST['register'])) {
   <div class="modern-login-content">
     <div class="modern-login-right">
       <form method="post">
-        <h3 style="margin-bottom: 18px; color: #4B3F72;">Create your account</h3>
+        <h3 style="margin-bottom: 18px;font-size: 25px; font-weight: bold; color: #4B3F72;">Create Account</h3>
+        <p style="margin-bottom: 10px; color: #7a7a7a;">Register to access the website</p>
         <input type="text" name="fullname" placeholder="Full Name" required>
         <input type="email" name="email" placeholder="Email address" required>
         <input type="text" name="contact" placeholder="Contact Number" required>
         <input type="date" name="dob" placeholder="Date of Birth" required>
         <input type="text" name="address" placeholder="Address" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <input type="password" name="confirmpassword" placeholder="Confirm Password" required>
+        <div class="form-group">
+            <input type="password" id="password" name="password" placeholder="Password" required>
+            <div class="password-strength-meter">
+                <div id="password-strength-bar"></div>
+            </div>
+            <p class="password-requirements">Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols</p>
+        </div>
+        
+        <div class="form-group">
+            <input type="password" id="confirm_password" name="confirmpassword" placeholder="Confirm Password" required>
+        </div>
         <input type="submit" name="register" value="Register" class="modern-login-btn">
         <div style="margin-top: 18px; text-align: center;">
           <a href="javascript:void(0);" onclick="closeRegisterModal(); openModal();" style="color: #4B3F72;">Already have an account? Login</a>
@@ -472,6 +560,123 @@ function openRegisterForm() {
 function closeRegisterModal() {
     document.getElementById('registerform').classList.remove('show');
 }
+
+// Password strength meter and validation
+const password = document.getElementById('password');
+const strengthBar = document.getElementById('password-strength-bar');
+const requirements = document.querySelector('.password-requirements');
+const confirmPass = document.getElementById('confirm_password');
+
+// Password requirements
+const requirementsList = [
+    { test: (p) => p.length >= 8, text: 'At least 8 characters' },
+    { test: (p) => p.length >= 12, text: 'At least 12 characters' },
+    { test: (p) => /[A-Z]/.test(p), text: 'Contains uppercase letter' },
+    { test: (p) => /[a-z]/.test(p), text: 'Contains lowercase letter' },
+    { test: (p) => /[0-9]/.test(p), text: 'Contains number' },
+    { test: (p) => /[^A-Za-z0-9]/.test(p), text: 'Contains symbol' }
+];
+
+// Update requirements display
+function updateRequirementsDisplay() {
+    const passVal = password.value;
+    const requirements = document.querySelectorAll('.requirements-list .requirement');
+    
+    requirements.forEach(req => {
+        const text = req.textContent;
+        
+        if (text.includes('8 characters')) {
+            req.style.color = passVal.length >= 8 ? '#33cc33' : '#f00';
+        } else if (text.includes('uppercase')) {
+            req.style.color = /[A-Z]/.test(passVal) ? '#33cc33' : '#f00';
+        } else if (text.includes('lowercase')) {
+            req.style.color = /[a-z]/.test(passVal) ? '#33cc33' : '#f00';
+        } else if (text.includes('number')) {
+            req.style.color = /[0-9]/.test(passVal) ? '#33cc33' : '#f00';
+        } else if (text.includes('special character')) {
+            req.style.color = /[^A-Za-z0-9]/.test(passVal) ? '#33cc33' : '#f00';
+        }
+    });
+}
+
+// Update strength meter
+function updateStrengthMeter() {
+    const passVal = password.value;
+    let strength = 0;
+    
+    // Calculate strength based on requirements
+    requirementsList.forEach(req => {
+        if (req.test(passVal)) strength += 25;
+    });
+    
+    // Update strength bar
+    strengthBar.style.width = `${strength}%`;
+    
+    // Update bar color based on strength
+    if (strength === 0) {
+        strengthBar.style.background = 'transparent';
+    } else if (strength < 30) {
+        strengthBar.style.background = '#f00';
+    } else if (strength < 60) {
+        strengthBar.style.background = '#ff9900';
+    } else if (strength < 90) {
+        strengthBar.style.background = '#33cc33';
+    } else {
+        strengthBar.style.background = '#00cc00';
+    }
+    
+    // Add validation message
+    if (strength === 100) {
+        requirements.innerHTML += '<div style="color: #33cc33; margin-top: 8px;">Password is strong and meets all requirements!</div>';
+    }
+}
+
+// Add event listeners
+password.addEventListener('input', function() {
+    updateStrengthMeter();
+    updateRequirementsDisplay();
+});
+
+confirmPass.addEventListener('input', function() {
+    const passVal = password.value;
+    const confirmVal = this.value;
+    
+    if (passVal !== confirmVal) {
+        this.style.borderColor = '#f00';
+        this.nextElementSibling?.remove();
+        const error = document.createElement('span');
+        error.textContent = 'Passwords do not match';
+        error.style.color = '#f00';
+        error.style.fontSize = '0.85rem';
+        error.style.marginTop = '4px';
+        this.parentNode.insertBefore(error, this.nextSibling);
+    } else {
+        this.style.borderColor = '';
+        this.nextElementSibling?.remove();
+    }
+});
+
+// Form submission validation
+const registerForm = document.querySelector('#registerform form');
+if (registerForm) {
+    registerForm.addEventListener('submit', function(e) {
+        const passVal = password.value;
+        const confirmVal = confirmPass.value;
+        
+        if (!updateRequirementsDisplay()) {
+            e.preventDefault();
+            alert('Password does not meet all requirements');
+            return;
+        }
+        
+        if (passVal !== confirmVal) {
+            e.preventDefault();
+            alert('Passwords do not match');
+            return;
+        }
+    });
+}
+
 // Logout confirmation
 function confirmLogout() {
     if (confirm('Are you sure you want to logout?')) {
