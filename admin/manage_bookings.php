@@ -99,11 +99,11 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
         table {
-            margin-top: 20px; /* Optional: fine-tune the table's position */
+            margin-top: 10px; /* Optional: fine-tune the table's position */
         }
         h4 {
             margin-left: 0px; /* Same as sidebar width */
-            margin-top: 30px;   /* Adjusted to leave space below the header */
+            margin-top: 5px;   /* Adjusted to leave space below the header */
             padding: 20px;
             font-size: 30px;
             overflow-y: auto;
