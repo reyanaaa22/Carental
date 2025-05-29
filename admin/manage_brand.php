@@ -244,7 +244,7 @@ $result = $conn->query($sql);
                                             <td><?php echo $row['creation_date']; ?></td>  
                                             <td><?php echo $row['updation_date']; ?></td>  
                                             <td>  
-                                                <a href="edit_brand.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary">Edit</a>  
+                                                <a href="edit_brand.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-primary toggle-edit" data-brand-id="<?php echo $row['id']; ?>">Edit</a>  
                                                 <a href="manage_brand.php?action=delete&id=<?php echo $row['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this brand?')">Delete</a>  
                                             </td>  
                                         </tr>  
@@ -276,7 +276,55 @@ $result = $conn->query($sql);
     </div>  
 </div>  
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>  
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Add modal HTML -->
+<div class="modal fade" id="editBrandModal" tabindex="-1" aria-labelledby="editBrandModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editBrandModalLabel">Edit Brand</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editBrandForm" action="edit_brand.php" method="POST">
+                    <input type="hidden" id="brandId" name="id">
+                    <div class="mb-3">
+                        <label for="brand_name" class="form-label">Brand Name</label>
+                        <input type="text" class="form-control" id="brand_name" name="brand_name" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Brand</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const editButtons = document.querySelectorAll('.toggle-edit');
+    const modal = new bootstrap.Modal(document.getElementById('editBrandModal'));
+    const form = document.getElementById('editBrandForm');
+
+    editButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const brandId = this.dataset.brandId;
+            const brandName = this.closest('tr').querySelector('td:nth-child(2)').textContent;
+
+            // Set form values
+            document.getElementById('brandId').value = brandId;
+            document.getElementById('brand_name').value = brandName;
+
+            // Show modal
+            modal.show();
+        });
+    });
+});
+</script>  
 
 <script>  
 document.addEventListener('DOMContentLoaded', function() {  
