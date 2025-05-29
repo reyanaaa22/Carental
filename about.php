@@ -19,7 +19,7 @@
     </ul>
 
     <h2><i class="fas fa-caravan"></i> Our Fleet</h2>
-    <p>Our diverse fleet includes various models of cars that cater to different preferences and requirements. Whether you need a fuel-efficient car for a solo trip, a family car, or a larger vehicle for a group, we’ve got you covered.</p>
+    <p>Our diverse fleet includes various models of cars that cater to different preferences and requirements. Whether you need a fuel-efficient car for a solo trip, a family car, or a larger vehicle for a group, we've got you covered.</p>
 
     <h2><i class="fas fa-map"></i> Location</h2>
     <p>We are conveniently located in Ormoc City, making it easy for you to pick up your rental car and start your journey right away. Our office is easily accessible, and we are always ready to serve our customers with excellent car rental services.</p>
@@ -29,8 +29,9 @@
       <p>Location: Ormoc City, Leyte</p>
       <!-- Embed Google Map -->
       <iframe
-        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3853.0381433836435!2d124.60419711520407!3d11.024482993482045!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33b1c5d2c8c9e345%3A0x40ab5c74c815bb9a!2sOrmoc%20City!5e0!3m2!1sen!2sph!4v1627642817789!5m2!1sen!2sph"
-        width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+        src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBuZ9i6AXux4ggvMXUkVEKqWoIYu-thsWo&q=Ormoc+City,Leyte"
+        width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy">
+      </iframe>
     </div>
   </div>
 </section>
