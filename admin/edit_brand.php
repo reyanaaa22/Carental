@@ -3,7 +3,7 @@
 include 'db.php';
 session_start();
 
-$id = $_GET['id'] ?? null;
+$id = $_POST['id'] ?? $_GET['id'] ?? null;
 
 if (!$id) {
     die("Invalid brand ID.");
