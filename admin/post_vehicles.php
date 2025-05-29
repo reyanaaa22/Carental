@@ -1,5 +1,12 @@
 <?php
+session_start();
 include('db.php'); // Connect to DB
+
+// Check if admin is logged in
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: login.php');
+    exit();
+}
 
 // Fetch brands from the database
 $brands = [];
@@ -11,7 +18,7 @@ if ($result) {
         $brands[] = $row;
     }
 } else {
-    echo "Error fetching brands: " . $conn->error;
+    $error = "Error fetching brands: " . $conn->error;
 }
 
 // Process the form when submitted
@@ -30,77 +37,150 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $uploaded_images = [];
     $upload_dir = 'uploads/'; // Make sure this folder exists and is writable
 
-    for ($i = 1; $i <= 5; $i++) {
-        $image_field = 'image' . $i;
-
-        if (!empty($_FILES[$image_field]['name'])) {
-            $image_name = basename($_FILES[$image_field]['name']);
-            $target_file = $upload_dir . $image_name; // Use the original file name
-
-            // Check if file already exists in the upload directory
-            if (file_exists($target_file)) {
-                // If file exists, generate a new unique file name
-                $file_info = pathinfo($image_name);
-                $file_name_without_extension = $file_info['filename'];
-                $file_extension = $file_info['extension'];
-
-                $counter = 1;
-                // Generate a new name by appending a counter
-                while (file_exists($target_file)) {
-                    $new_image_name = $file_name_without_extension . "_" . $counter . "." . $file_extension;
-                    $target_file = $upload_dir . $new_image_name;
-                    $counter++;
-                }
-            }
-
-            if (move_uploaded_file($_FILES[$image_field]['tmp_name'], $target_file)) {
-                $uploaded_images[] = $target_file;
-            } else {
-                $uploaded_images[] = ''; // if upload fails
-            }
-        } else {
-            $uploaded_images[] = ''; // no file uploaded
+    // Initialize uploaded images array
+    $uploaded_images = [];
+    
+    // Check if upload directory exists and is writable
+    if (!file_exists($upload_dir)) {
+        if (!mkdir($upload_dir, 0777, true)) {
+            $error = "Error: Could not create upload directory";
         }
     }
-
-    // Prepare the INSERT SQL
-    $stmt = $conn->prepare("INSERT INTO vehicles (
-        vehicle_title, brand_name, vehicle_overview, price_per_day, fuel_type, model_year,
-        seating_capacity, image1, image2, image3, image4, image5, accessories
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-    $stmt->bind_param("sssssiissssss",
-        $vehicle_title,
-        $brand_name,
-        $vehicle_overview,
-        $price_per_day,
-        $fuel_type,
-        $model_year,
-        $seating_capacity,
-        $uploaded_images[0],
-        $uploaded_images[1],
-        $uploaded_images[2],
-        $uploaded_images[3],
-        $uploaded_images[4],
-        $accessories
-    );
-
-    if ($stmt->execute()) {
-        // Log the action in the activity_log table
-        $admin_id = $_SESSION['admin_id']; // Ensure admin_id is stored in the session
-        $action = "Posted a new vehicle: $vehicle_title";
-        $log_stmt = $conn->prepare("INSERT INTO activity_log (admin_id, action) VALUES (?, ?)");
-        $log_stmt->bind_param("is", $admin_id, $action);
-        $log_stmt->execute();
-
-        echo "<script>alert('Vehicle posted successfully.'); window.location.href='post_vehicles.php';</script>";
-    } else {
-        echo "Error: " . $stmt->error;
+    if (!is_writable($upload_dir)) {
+        $error = "Error: Upload directory is not writable";
     }
 
-    $stmt->close();
-    $conn->close();
+    if (empty($error)) {
+        // Handle image uploads first
+        for ($i = 1; $i <= 5; $i++) {
+            $image_field = 'image' . $i;
+            
+            // Only require images 1-3, 4 and 5 are optional
+            if ($i <= 3) {
+                if (!isset($_FILES[$image_field]) || $_FILES[$image_field]['error'] != UPLOAD_ERR_OK) {
+                    $error = "Error uploading required image $i";
+                    break;
+                }
+                
+                // Process required image
+                $image_name = basename($_FILES[$image_field]['name']);
+                $target_file = $upload_dir . $image_name;
+
+                // Check if file already exists
+                if (file_exists($target_file)) {
+                    // Generate a new unique file name
+                    $file_info = pathinfo($image_name);
+                    $file_name_without_extension = $file_info['filename'];
+                    $file_extension = $file_info['extension'];
+                    $counter = 1;
+
+                    // Generate a new name by appending a counter
+                    while (file_exists($target_file)) {
+                        $new_image_name = $file_name_without_extension . "_" . $counter . "." . $file_extension;
+                        $target_file = $upload_dir . $new_image_name;
+                        $counter++;
+                    }
+                    $image_name = $new_image_name;
+                }
+
+                // Move uploaded file
+                if (move_uploaded_file($_FILES[$image_field]['tmp_name'], $target_file)) {
+                    $uploaded_images[] = $image_name;
+                } else {
+                    $error = "Error moving uploaded file for image $i";
+                    break;
+                }
+            } else {
+                // Handle optional images 4 and 5
+                if (isset($_FILES[$image_field]) && $_FILES[$image_field]['error'] == UPLOAD_ERR_OK) {
+                    $image_name = basename($_FILES[$image_field]['name']);
+                    $target_file = $upload_dir . $image_name;
+
+                    // Check if file already exists
+                    if (file_exists($target_file)) {
+                        // Generate a new unique file name
+                        $file_info = pathinfo($image_name);
+                        $file_name_without_extension = $file_info['filename'];
+                        $file_extension = $file_info['extension'];
+                        $counter = 1;
+
+                        // Generate a new name by appending a counter
+                        while (file_exists($target_file)) {
+                            $new_image_name = $file_name_without_extension . "_" . $counter . "." . $file_extension;
+                            $target_file = $upload_dir . $new_image_name;
+                            $counter++;
+                        }
+                        $image_name = $new_image_name;
+                    }
+
+                    // Move uploaded file
+                    if (move_uploaded_file($_FILES[$image_field]['tmp_name'], $target_file)) {
+                        $uploaded_images[] = $image_name;
+                    } else {
+                        $error = "Error moving uploaded file for image $i";
+                        break;
+                    }
+                } else {
+                    // No error for missing optional image
+                    $uploaded_images[] = '';
+                }
+            }
+        }
+
+        if (empty($error)) {
+            // Prepare the INSERT SQL
+            $stmt = $conn->prepare("INSERT INTO vehicles (
+                vehicle_title, brand_name, vehicle_overview, price_per_day, fuel_type, model_year,
+                seating_capacity, image1, image2, image3, image4, image5, accessories
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+            // Ensure all image values are strings
+            $image1 = isset($uploaded_images[0]) ? $uploaded_images[0] : '';
+            $image2 = isset($uploaded_images[1]) ? $uploaded_images[1] : '';
+            $image3 = isset($uploaded_images[2]) ? $uploaded_images[2] : '';
+            $image4 = isset($uploaded_images[3]) ? $uploaded_images[3] : '';
+            $image5 = isset($uploaded_images[4]) ? $uploaded_images[4] : '';
+
+            $stmt->bind_param("sssssiissssss",
+                $vehicle_title,
+                $brand_name,
+                $vehicle_overview,
+                $price_per_day,
+                $fuel_type,
+                $model_year,
+                $seating_capacity,
+                $image1,
+                $image2,
+                $image3,
+                $image4,
+                $image5,
+                $accessories
+            );
+
+            if ($stmt->execute()) {
+                // Log the action in the activity_log table
+                try {
+                    $admin_id = $_SESSION['admin_id'];
+                    $action = "Posted a new vehicle: $vehicle_title";
+                    $log_stmt = $conn->prepare("INSERT INTO activity_log (admin_id, action) VALUES (?, ?)");
+                    $log_stmt->bind_param("is", $admin_id, $action);
+                    $log_stmt->execute();
+                    $msg = "Vehicle posted successfully!";
+                } catch (Exception $e) {
+                    $error = "Error logging activity: " . $e->getMessage();
+                }
+            } else {
+                $error = "Error: " . $stmt->error;
+            }
+        }
+    }
 }
+
+// Close database connection
+if (isset($stmt)) {
+    $stmt->close();
+}
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -153,6 +233,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: red;
         }
 
+        .alert {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: #ffffff;
+        }
+
+        .errorWrap {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        .succWrap {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
         fieldset {
             margin-bottom: 20px;
             padding: 20px;
@@ -176,6 +275,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <div class="main-content">
     <h4>Post A Vehicle</h4>
+
+    <?php if (!empty($error)) { ?>
+        <div class="alert errorWrap">
+            <strong>ERROR</strong>: <?php echo htmlentities($error); ?>
+        </div>
+    <?php } elseif (!empty($msg)) { ?>
+        <div class="alert succWrap">
+            <strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?>
+        </div>
+    <?php } ?>
 
     <form action="post_vehicles.php" method="post" enctype="multipart/form-data">
         <!-- Basic Info Section -->
