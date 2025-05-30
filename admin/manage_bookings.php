@@ -6,22 +6,24 @@ include('includes/sidebar.php');
 
 session_start(); // Ensure session is started
 
-// Handle confirm/cancel actions
+// Handle approve/cancel actions
 if (isset($_GET['action'], $_GET['id'])) {
     $action = $_GET['action'];
     $id = intval($_GET['id']);
     $admin_id = $_SESSION['admin_id']; // Ensure admin_id is stored in the session
 
-    if ($action === 'confirm') {
+    if ($action === 'approve') {
+        // Update status to 1 (Approved)
         $stmt = $dbh->prepare("UPDATE bookings SET Status = 1 WHERE id = ?");
         if ($stmt->execute([$id])) {
             // Log the action in the activity_log table
-            $log_action = "Confirmed booking ID: $id";
+            $log_action = "Approved booking ID: $id";
             $log_stmt = $dbh->prepare("INSERT INTO activity_log (admin_id, action) VALUES (?, ?)");
             $log_stmt->execute([$admin_id, $log_action]);
         }
     } elseif ($action === 'cancel') {
-        $stmt = $dbh->prepare("UPDATE bookings SET Status = 0 WHERE id = ?");
+        // Update status to 2 (Cancelled)
+        $stmt = $dbh->prepare("UPDATE bookings SET Status = 2 WHERE id = ?");
         if ($stmt->execute([$id])) {
             // Log the action in the activity_log table
             $log_action = "Cancelled booking ID: $id";
@@ -124,15 +126,15 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div>  
                     Show   
                     <select id="entries" class="form-select form-select-sm d-inline-block" style="width: auto;">  
-                        <option selected>10</option>  
-                        <option>25</option>  
-                        <option>50</option>  
-                        <option>100</option>  
+                        <option value="10" selected>10</option>  
+                        <option value="25">25</option>  
+                        <option value="50">50</option>  
+                        <option value="100">100</option>  
                     </select>   
                     entries  
                 </div>  
                 <div>  
-                    Search: <input type="search" class="form-control form-control-sm d-inline-block" style="width: auto;">  
+                    Search: <input type="search" class="form-control form-control-sm d-inline-block" style="width: auto;" id="searchInput">  
                 </div>  
             </div>  
 
@@ -150,7 +152,7 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <th>Action</th>  
                     </tr>  
                 </thead>  
-                <tbody>  
+                <tbody id="bookingsBody">  
                     <?php if (empty($bookings)): ?>
                         <tr>  
                             <td colspan="9" class="text-center">No data available in table</td>  
@@ -165,18 +167,42 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <td><?= htmlentities($booking['ToDate']) ?></td>
                             <td><?= htmlentities($booking['message']) ?></td>
                             <td>
-                                <?php if ($booking['Status'] == 1): ?>
-                                    <span class="badge bg-success">Confirmed</span>
-                                <?php elseif ($booking['Status'] == 0): ?>
-                                    <span class="badge bg-danger">Cancelled</span>
-                                <?php else: ?>
-                                    <span class="badge bg-warning text-dark">Not Confirmed</span>
-                                <?php endif; ?>
+                                <?php 
+                                $statusText = '';
+                                $badgeClass = '';
+                                
+                                // For initial booking (Status = 0)
+                                if ($booking['Status'] == 0) {
+                                    $statusText = 'Pending';
+                                    $badgeClass = 'bg-warning text-dark';
+                                } else {
+                                    // For approved/cancelled bookings
+                                    switch($booking['Status']) {
+                                        case 1:
+                                            $statusText = 'Approved';
+                                            $badgeClass = 'bg-success';
+                                            break;
+                                        case 2:
+                                            $statusText = 'Cancelled';
+                                            $badgeClass = 'bg-danger';
+                                            break;
+                                    }
+                                }
+                                ?>
+                                <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
                             </td>
                             <td><?= htmlentities($booking['PostingDate']) ?></td>
                             <td>
-                                <a href="manage_bookings.php?action=confirm&id=<?= $booking['id'] ?>" class="text-success">Confirm</a> /
-                                <a href="manage_bookings.php?action=cancel&id=<?= $booking['id'] ?>" class="text-danger">Cancel</a>
+                                <?php if ($booking['Status'] == 2): ?>
+                                    <!-- If cancelled, show no actions -->
+                                    <span class="text-muted">No actions available</span>
+                                <?php else: ?>
+                                    <?php if ($booking['Status'] == 1): ?>
+                                        <a href="manage_bookings.php?action=cancel&id=<?= $booking['id'] ?>" class="text-danger cancel-action">Cancel</a>
+                                    <?php else: ?>
+                                        <a href="manage_bookings.php?action=approve&id=<?= $booking['id'] ?>" class="text-success approve-action">Approve</a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -197,7 +223,7 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </tfoot>  
             </table>  
 
-            <div class="mt-2 small text-muted">  
+            <div class="mt-2 small text-muted" id="showingText">  
                 Showing <?= count($bookings) ? '1 to ' . count($bookings) . ' of ' . count($bookings) : '0 to 0 of 0' ?> entries  
             </div>  
 
@@ -209,9 +235,78 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </nav>  
         </div>  
     </div>  
-</div>  
+</div>    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const entriesSelect = document.getElementById('entries');
+            const searchInput = document.getElementById('searchInput');
+            const bookingsBody = document.querySelector('#bookingsBody');
+            const showingText = document.getElementById('showingText');
+            
+            // Store all original rows
+            let originalRows = [];
+            
+            // Function to update the table based on entries and search
+            function updateTable() {
+                // If this is the first time, store all original rows
+                if (originalRows.length === 0) {
+                    originalRows = Array.from(bookingsBody.getElementsByTagName('tr'));
+                }
+                
+                // Get the search term and selected entries
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedEntries = parseInt(entriesSelect.value);
+                
+                // Clear the table body
+                bookingsBody.innerHTML = '';
+                
+                // Filter rows based on search term
+                const filteredRows = originalRows.filter(row => {
+                    const text = Array.from(row.getElementsByTagName('td'))
+                        .slice(1, -1) // Exclude first and last columns
+                        .map(cell => cell.textContent.toLowerCase())
+                        .join(' ');
+                    return searchTerm === '' || text.includes(searchTerm);
+                });
+                
+                // Show the specified number of rows
+                const rowsToShow = filteredRows.slice(0, selectedEntries);
+                
+                // Add the rows back to the table
+                rowsToShow.forEach(row => {
+                    bookingsBody.appendChild(row.cloneNode(true));
+                });
+                
+                // Update the showing text
+                showingText.textContent = `Showing ${rowsToShow.length} of ${filteredRows.length} entries`;
+            }
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>  
+            // Event listeners
+            entriesSelect.addEventListener('change', function() {
+                updateTable();
+            });
+
+            searchInput.addEventListener('input', function() {
+                updateTable();
+            });
+
+            // Add confirmation dialogs for actions
+            document.querySelectorAll('.approve-action, .cancel-action').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    const action = this.classList.contains('approve-action') ? 'approve' : 'cancel';
+                    const message = action === 'approve' ? 'Approve this booking?' : 'Cancel this booking?';
+                    
+                    if (!confirm(message)) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // Initial call to set up the table
+            updateTable();
+        });
+    </script>
+
 </body>  
 </html>
 
