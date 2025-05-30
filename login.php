@@ -179,10 +179,11 @@ if (isset($_POST['register'])) {
     $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
     $password = $_POST['password'];
     $confirmpassword = $_POST['confirmpassword'];
+    $password = trim($password);
 
     if ($password !== $confirmpassword) {
         echo "<script>alert('Passwords do not match!');</script>";
-    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password)) {
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/', $password)) {
         echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
     } else {
         $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
@@ -580,24 +581,39 @@ const requirementsList = [
 // Update requirements display
 function updateRequirementsDisplay() {
     const passVal = password.value;
+    let isValid = true; // Track whether all requirements are met
+
     const requirements = document.querySelectorAll('.requirements-list .requirement');
     
     requirements.forEach(req => {
         const text = req.textContent;
         
         if (text.includes('8 characters')) {
-            req.style.color = passVal.length >= 8 ? '#33cc33' : '#f00';
+            const ok = passVal.length >= 8;
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
         } else if (text.includes('uppercase')) {
-            req.style.color = /[A-Z]/.test(passVal) ? '#33cc33' : '#f00';
+            const ok = /[A-Z]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
         } else if (text.includes('lowercase')) {
-            req.style.color = /[a-z]/.test(passVal) ? '#33cc33' : '#f00';
+            const ok = /[a-z]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
         } else if (text.includes('number')) {
-            req.style.color = /[0-9]/.test(passVal) ? '#33cc33' : '#f00';
+            const ok = /[0-9]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
         } else if (text.includes('special character')) {
-            req.style.color = /[^A-Za-z0-9]/.test(passVal) ? '#33cc33' : '#f00';
+            const ok = /[^A-Za-z0-9]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
         }
     });
+
+    return isValid; // ✅ Return true only if all requirements are satisfied
 }
+
 
 // Update strength meter
 function updateStrengthMeter() {
@@ -660,15 +676,17 @@ confirmPass.addEventListener('input', function() {
 const registerForm = document.querySelector('#registerform form');
 if (registerForm) {
     registerForm.addEventListener('submit', function(e) {
+        const password = document.getElementById('password');
+        const confirmPass = document.getElementById('confirm_password');
         const passVal = password.value;
         const confirmVal = confirmPass.value;
-        
+
         if (!updateRequirementsDisplay()) {
             e.preventDefault();
             alert('Password does not meet all requirements');
             return;
         }
-        
+
         if (passVal !== confirmVal) {
             e.preventDefault();
             alert('Passwords do not match');
@@ -676,6 +694,7 @@ if (registerForm) {
         }
     });
 }
+
 
 // Logout confirmation
 function confirmLogout() {
