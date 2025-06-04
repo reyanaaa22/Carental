@@ -101,7 +101,6 @@
 </li>
 
 <li><a href="../admin/manage_bookings.php"><i class="fa fa-calendar-check"></i> Manage Booking</a></li>
-<li><a href="../admin/testimonials.php"><i class="fa fa-comments"></i> Manage Testimonials</a></li>
 <li><a href="../admin/contact.php"><i class="fa fa-envelope"></i> Contact Us</a></li>
 <li><a href="../admin/users.php"><i class="fa fa-users"></i> Reg Users</a></li>
 <li><a href="../admin/page.php"><i class="fa fa-file-alt"></i> Manage Pages</a></li>

@@ -1,13 +1,206 @@
 <?php
+// Enable error reporting for debugging (remove in production)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Initialize session
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Database connection
+// Include API configuration
+require_once 'api/auth_api.php';
+
+// Initialize the API
+$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
+
+// Function to request OTP
+function requestOTP($email) {
+    global $auth_api;
+    return $auth_api->requestOTP($email, 'email_verification');
+}
+
+// Function to verify OTP
+function verifyOTP($email, $otp) {
+    global $auth_api;
+    return $auth_api->verifyEmail($email, $otp);
+}
+
+// Function to register user
+function registerUser($email, $password, $fullname, $contact, $dob, $address) {
+    global $auth_api;
+    
+    // First register with API
+    $response = $auth_api->register($email, $password, $fullname);
+    
+    if ($response['status'] === 200 && $response['data']['success']) {
+        // Store user in local database
+        $conn = new PDO("mysql:host=localhost;dbname=ocrms", "root", "");
+        $stmt = $conn->prepare("
+            INSERT INTO tblusers 
+            (FullName, EmailId, Password, ContactNumber, DOB, Address, is_verified) 
+            VALUES (?, ?, ?, ?, ?, ?, 0)
+        ");
+        
+        if ($stmt->execute([
+            $fullname,
+            $email,
+            password_hash($password, PASSWORD_DEFAULT),
+            $contact,
+            $dob,
+            $address
+        ])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Database connection (for fallback)
 $host = 'localhost';
-$db = 'ocrms'; 
+$db = 'ocrms';
 $user = 'root';
 $pass = '';
+
+// Initialize the API
+$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
+
+// Handle OTP verification
+if (isset($_POST['verify_otp']) && isset($_POST['email']) && isset($_POST['otp'])) {
+    $email = $_POST['email'];
+    $otp = $_POST['otp'];
+    
+    // Call API to verify OTP
+    $response = $auth_api->verifyEmail($email, $otp);
+    
+    if ($response['status'] === 200 && $response['data']['success']) {
+        $_SESSION['success'] = 'Email verified successfully! Please login.';
+        header('Location: login.php');
+        exit;
+    } else {
+        $_SESSION['error'] = 'Invalid OTP. Please try again.';
+    }
+}
+
+// Handle OTP request (send OTP email after API call)
+require_once __DIR__ . '/phpmailer.php';
+if (isset($_POST['request_otp']) && isset($_POST['email'])) {
+    $email = $_POST['email'];
+    $response = $auth_api->requestOTP($email, 'email_verification');
+    if ($response['status'] === 200 && $response['data']['success']) {
+        $otp = isset($response['data']['otp']) ? $response['data']['otp'] : null;
+        if ($otp) {
+            sendOTPEmail($email, $otp, 'email_verification');
+        }
+        $_SESSION['success'] = 'Verification code sent to your email. Please check your inbox.';
+    } elseif ($response['status'] === 429) {
+        // Rate limit exceeded
+        $wait_time = isset($response['data']['wait_time']) ? $response['data']['wait_time'] : 0;
+        $message = isset($response['data']['message']) ? $response['data']['message'] : 'Rate limit exceeded. Please try again later.';
+        $_SESSION['error'] = $message;
+        echo "<script>alert('{$message}');</script>";
+        exit;
+    } else {
+        $_SESSION['error'] = 'Failed to send verification code. Please try again.';
+    }
+}
+
+// Handle registration (send OTP email after registration and OTP generation)
+if (isset($_POST['register'])) {
+    $fullname = htmlspecialchars($_POST['fullname']);
+    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $contact = htmlspecialchars($_POST['contact']);
+    $dob = isset($_POST['dob']) ? $_POST['dob'] : null;
+    $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
+    $password = $_POST['password'];
+    $confirm_password = isset($_POST['confirm_password']) ? $_POST['confirm_password'] : '';
+
+    // Password validation
+    if (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password)) {
+        echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
+        exit;
+    } elseif ($password !== $confirm_password) {
+        echo "<script>alert('Passwords do not match.');</script>";
+        exit;
+    }
+
+    // Check if email already exists
+    $conn = new PDO("mysql:host=$host;dbname=$db", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
+    $stmt->bindParam(':email', $email);
+    $stmt->execute();
+
+    if ($stmt->rowCount() > 0) {
+        echo "<script>alert('Email already registered!');</script>";
+        exit;
+    }
+
+    // 1. Request OTP from API (API generates OTP)
+    $otp_response = $auth_api->requestOTP($email, 'email_verification');
+    
+    // Handle different API response scenarios
+    if ($otp_response['status'] === 429) {
+        $message = isset($otp_response['data']['message']) ? $otp_response['data']['message'] : 'Rate limit exceeded. Please try again later.';
+        echo "<script>alert('{$message}');</script>";
+        exit;
+    } elseif ($otp_response['status'] !== 200) {
+        $error = isset($otp_response['data']['error']) ? $otp_response['data']['error'] : 'Unknown error';
+        $message = isset($otp_response['data']['message']) ? $otp_response['data']['message'] : 'Failed to generate OTP. Please try again later.';
+        error_log("OTP Generation Error: Status " . $otp_response['status'] . ", Error: " . $error);
+        echo "<script>
+            alert('{$message}\n\nPlease check:\n1. Your internet connection\n2. That you have entered a valid email address\n3. Try refreshing the page and trying again');
+            window.location.href = 'login.php';
+        </script>";
+        exit;
+    }
+    
+    // Check if OTP was actually generated
+    if (empty($otp_response['data']['otp'])) {
+        error_log("No OTP received in response: " . json_encode($otp_response));
+        echo "<script>alert('Failed to generate OTP. Please try again later.');</script>";
+        exit;
+    }
+    
+    $otp = $otp_response['data']['otp'];
+    
+    // Log successful OTP generation
+    error_log("Successfully generated OTP for email: " . $email);
+
+    // 2. Store OTP and email in session for verification step
+    $_SESSION['pending_otp'] = $otp;
+    $_SESSION['pending_email'] = $email;
+
+    // 3. Register user in DB (unverified)
+    $stmt = $conn->prepare("
+        INSERT INTO tblusers 
+        (FullName, EmailId, Password, ContactNumber, DOB, Address, is_verified) 
+        VALUES (?, ?, ?, ?, ?, ?, 0)
+    ");
+    $stmt->execute([
+        $fullname,
+        $email,
+        password_hash($password, PASSWORD_DEFAULT),
+        $contact,
+        $dob,
+        $address
+    ]);
+
+    // 4. Send OTP via PHPMailer (your own Gmail)
+    require_once __DIR__ . '/phpmailer.php';
+    sendOTPEmail($email, $otp, 'email_verification');
+
+    // 5. Show success message and redirect to OTP verification page
+    echo '<script>alert("Registration successful! Please check your email for the verification code.");window.location.href="otp_verify.php";</script>';
+    exit;
+}
+
+// Database connection (for fallback)
+$host = 'localhost';
+$db = 'ocrms';
+// Initialize the API
+$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
 
 // reCAPTCHA configuration
 $recaptcha_site_key = '6LeY3TwrAAAAAKyLLLsFmTXtDKvvLTeyUcNnUX5W';
@@ -87,13 +280,18 @@ function incrementFailedAttempts($conn, $email) {
     $stmt->execute();
     
     // Check if we need to lock the account
-    $stmt = $conn->prepare("SELECT failed_attempts FROM tblusers WHERE EmailId = :email");
-    $stmt->bindParam(':email', $email);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($result['failed_attempts'] >= 3) {
-        lockAccount($conn, $email);
+    try {
+        $stmt = $conn->prepare("SELECT failed_attempts FROM tblusers WHERE EmailId = :email");
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($result && isset($result['failed_attempts']) && $result['failed_attempts'] >= 3) {
+            lockAccount($conn, $email);
+        }
+    } catch (PDOException $e) {
+        // Log the error but don't let it affect the login process
+        error_log("Database error: " . $e->getMessage());
     }
 }
 
@@ -170,527 +368,93 @@ if (isset($_POST['login'])) {
     }
 }
 
-// REGISTER
+// REMOVE this duplicate registration block below (if present):
+/*
 if (isset($_POST['register'])) {
-    $fullname = htmlspecialchars($_POST['fullname']);
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $contact = htmlspecialchars($_POST['contact']);
-    $dob = isset($_POST['dob']) ? $_POST['dob'] : null;
-    $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
-    $password = $_POST['password'];
-    $confirmpassword = $_POST['confirmpassword'];
-
-    if ($password !== $confirmpassword) {
-        echo "<script>alert('Passwords do not match!');</script>";
-    } elseif (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password)) {
-        echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
-    } else {
-        $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-
-        if ($stmt->rowCount() > 0) {
-            echo "<script>alert('Email already registered!');</script>";
-        } else {
-            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $conn->prepare("INSERT INTO tblusers (FullName, EmailId, ContactNumber, dob, address, Password) VALUES (:fullname, :email, :contact, :dob, :address, :password)");
-            $stmt->bindParam(':fullname', $fullname);
-            $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':contact', $contact);
-            $stmt->bindParam(':dob', $dob);
-            $stmt->bindParam(':address', $address);
-            $stmt->bindParam(':password', $hashedPassword);
-
-            if ($stmt->execute()) {
-                echo "<script>alert('Registration successful. You can now login!');</script>";
-                echo "<script>openModal();</script>";
-            } else {
-                echo "<script>alert('Registration failed. Try again.');</script>";
-            }
-        }
-    }
+    // ...duplicate registration logic...
 }
+*/
 ?>
 
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login/Register</title>
-    <!-- Add reCAPTCHA script -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.6);
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-        .modal.show {
-            display: flex;
-        }
-        .modal-dialog {
-            background: #fff;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-        }
-        .modal-content {
-            padding: 20px;
-        }
-        .modal-header {
-            position: relative;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 10px;
-        }
-        .modal-title {
-            font-size: 22px;
-            font-weight: bold;
-        }
-        .close {
-            position: absolute;
-            right: 15px;
-            top: 10px;
-            font-size: 28px;
-            cursor: pointer;
-            background: none;
-            border: none;
-            z-index: 10;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            font-size: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .btn-submit {
-            width: 100%;
-            padding: 10px;
-            background: #007bff;
-            border: none;
-            color: #fff;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .btn-submit:hover {
-            background: #0056b3;
-        }
-        .modal-footer {
-            text-align: center;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-        .modern-login-modal {
-            display: none;
-            justify-content: center;
-            align-items: center;
-            position: fixed;
-            z-index: 9999;
-            left: 0; top: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.4);
-        }
-        .modern-login-modal.show {
-            display: flex;
-        }
-        .modern-login-content {
-            display: flex;
-            width: 700px;
-            min-height: 500px;
-            max-width: 95vw;
-            background: #fff;
-            border-radius: 18px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-            position: relative;
-        }
-        .modern-login-left {
-            background: linear-gradient(135deg, #004153 0%, #00bcd4 100%);
-            color: #fff;
-            flex: 1.2;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 24px;
-            min-width: 0;
-        }
-        .login-illustration {
-            width: 180px;
-            margin-bottom: 18px;
-        }
-        .modern-login-right {
-            flex: 1.5;
-            padding: 40px 32px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-width: 0;
-        }
-        .modern-login-right form {
-            display: flex;
-            flex-direction: column;
-        }
-        .modern-login-right input[type='email'],
-        .modern-login-right input[type='password'] {
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            font-size: 1.1rem;
-            outline: none;
-            transition: border 0.2s;
-        }
-        .modern-login-right input[type='email']:focus,
-        .modern-login-right input[type='password']:focus {
-            border: 1.5px solid #6a82fb;
-        }
-        /* Make all registration form inputs the same size and style */
-        #registerform input[type='text'],
-        #registerform input[type='email'],
-        #registerform input[type='password'],
-        #registerform input[type='date'] {
-            margin-bottom: 13px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            font-size: 1.1rem;
-            outline: none;
-            transition: border 0.2s;
-        }
-        #registerform input[type='text']:focus,
-        #registerform input[type='email']:focus,
-        #registerform input[type='password']:focus,
-        #registerform input[type='date']:focus {
-            border: 1.5px solid #6a82fb;
-        }
-        .modern-login-btn {
-            background: linear-gradient(90deg, #6a82fb 0%, #4B3F72 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 0;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: background 0.2s;
-        }
-        .modern-login-btn:hover {
-            background: linear-gradient(90deg, #4B3F72 0%, #6a82fb 100%);
-        }
-        
-        .form-group {
-            margin-bottom: 16px;
-        }
-        
-        .password-strength-meter {
-            height: 5px;
-            background: #eee;
-            border-radius: 8px;
-            margin: 8px 0;
-        }
-        
-        #password-strength-bar {
-            height: 100%;
-            background: transparent;
-            border-radius: 8px;
-            transition: width 0.3s ease;
-        }
-        
-        .password-requirements {
-            font-size: 0.85rem;
-            color: #7a7a7a;
-            margin-top: 5px;
-            line-height: 1.4;
-        }
-        
-        .requirements-list {
-            margin-top: 8px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-        }
-        
-        .requirements-list .requirement {
-            font-size: 0.85rem;
-            color: #7a7a7a;
-            margin-bottom: 4px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-            background: transparent;
-        }
-        
-        .requirements-list .requirement:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .password-requirements span {
-            display: block;
-            margin: 2px 0;
-        }
-        
-        .password-requirements span[style*='color: #33cc33'] {
-            color: #33cc33;
-        }
-        
-        .password-requirements span[style*='color: #f00'] {
-            color: #f00;
-        }
-        
-        .form-group input[type='password'] {
-            margin-bottom: 16px;
-            padding: 12px 14px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-            font-size: 1.1rem;
-            outline: none;
-            transition: border 0.2s;
-            width: 100%;
-        }
-        
-        .form-group input[type='password']:focus {
-            border: 1.5px solid #6a82fb;
-        }
-        @media (max-width: 700px) {
-            .modern-login-content { flex-direction: column; }
-            .modern-login-left, .modern-login-right { padding: 24px 12px; }
-            .modern-login-left { align-items: flex-start; }
-        }
-        /* For single-column (register) modal, override flex */
-        .modern-login-modal.single .modern-login-content {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 500px;
-            min-height: 500px;
-            max-width: 95vw;
-        }
-        .modern-login-modal.single .modern-login-right {
-            flex: 1;
-            width: 100%;
-            padding: 40px 32px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-    </style>
-</head>
-<body <?php if (!isset($_SESSION['login'])) echo 'onload="openModal()"'; ?>>
-
-<!-- LOGIN MODAL -->
-<div class="modern-login-modal" id="loginform">
-  <div class="modern-login-content">
-    <button class="close" onclick="closeModal()">&times;</button>
-    <div class="modern-login-left">
-      <img src="images/blue.png" alt="Welcome" class="login-illustration">
-      <h2>Hello!<br><span style="font-weight:400;">Welcome</span></h2>
-      <p style="margin-top: 20px; color: #fff; font-size: 1rem;">Login your account to get full user experience</p>
+<!-- Login/Register Modal Form -->
+<div class="modal-content login-modal" style="background:#fff;max-width:400px;margin:40px auto;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px #0002;position:relative;">
+  <span onclick="document.getElementById('login-form-container').style.display='none'" style="position:absolute;top:12px;right:18px;font-size:24px;cursor:pointer;">&times;</span>
+  
+  <!-- Login Form -->
+  <div id="login-form-section">
+    <h2 style="margin-bottom:18px;text-align:center;color:#004153;">Login</h2>
+    <form method="POST" action="login.php">
+      <input type="email" name="email" placeholder="Email" required class="login-input">
+      <input type="password" name="password" placeholder="Password" required class="login-input">
+      <button type="submit" name="login" class="login-btn">Login</button>
+    </form>
+    <div style="text-align:center;margin-top:12px;">
+      <span>Don't have an account yet? <a href="#" onclick="showRegister();return false;">Register</a></span>
     </div>
-    <div class="modern-login-right">
-      <form method="post">
-        <h3 style="margin-bottom: 18px; color: #4B3F72;">Login your account</h3>
-        <p style="margin-bottom: 10px; color: #7a7a7a;">Enter your credentials to access your account</p>
-        <input type="email" name="email" placeholder="Username" required value="<?php echo isset($_SESSION['last_login_email']) ? htmlspecialchars($_SESSION['last_login_email']) : ''; ?>">
-        <input type="password" name="password" placeholder="Password" required>
-        <div class="g-recaptcha" data-sitekey="<?php echo $recaptcha_site_key; ?>" style="margin: 10px 0;"></div>
-        <a href="#" style="font-size: 0.95rem; color: #7a7a7a; float:right; margin-bottom: 10px;">Forgot password?</a>
-        <input type="submit" name="login" value="Login" class="modern-login-btn">
-        <div style="margin-top: 18px; text-align: center;">
-          <a href="javascript:void(0);" onclick="closeModal(); openRegisterForm();" style="color: #4B3F72;">Create Account</a>
-        </div>
-      </form>
+  </div>
+
+  <!-- Register Form -->
+  <div id="register-form-section" style="display:none;">
+    <h2 style="margin-bottom:18px;text-align:center;color:#1976d2;">Register</h2>
+    <form method="POST" action="login.php">
+      <input type="text" name="fullname" placeholder="Full Name" required class="login-input">
+      <input type="email" name="email" placeholder="Email" required class="login-input">
+      <input type="text" name="contact" placeholder="Contact Number" required class="login-input">
+      <input type="date" name="dob" placeholder="Date of Birth" class="login-input">
+      <input type="text" name="address" placeholder="Address" class="login-input">
+      <input type="password" name="password" placeholder="Password" required class="login-input">
+      <input type="password" name="confirm_password" placeholder="Confirm Password" required class="login-input">
+      <button type="submit" name="register" class="register-btn">Register</button>
+    </form>
+    <div style="text-align:center;margin-top:12px;">
+      <span>Already have an account? <a href="#" onclick="showLogin();return false;">Login</a></span>
     </div>
   </div>
 </div>
-
-<!-- REGISTER MODAL -->
-<div class="modern-login-modal single" id="registerform">
-  <div class="modern-login-content">
-    <div class="modern-login-right">
-      <form method="post">
-        <h3 style="margin-bottom: 18px;font-size: 25px; font-weight: bold; color: #4B3F72;">Create Account</h3>
-        <p style="margin-bottom: 10px; color: #7a7a7a;">Register to access the website</p>
-        <input type="text" name="fullname" placeholder="Full Name" required>
-        <input type="email" name="email" placeholder="Email address" required>
-        <input type="text" name="contact" placeholder="Contact Number" required>
-        <input type="date" name="dob" placeholder="Date of Birth" required>
-        <input type="text" name="address" placeholder="Address" required>
-        <div class="form-group">
-            <input type="password" id="password" name="password" placeholder="Password" required>
-            <div class="password-strength-meter">
-                <div id="password-strength-bar"></div>
-            </div>
-            <p class="password-requirements">Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols</p>
-        </div>
-        
-        <div class="form-group">
-            <input type="password" id="confirm_password" name="confirmpassword" placeholder="Confirm Password" required>
-        </div>
-        <input type="submit" name="register" value="Register" class="modern-login-btn">
-        <div style="margin-top: 18px; text-align: center;">
-          <a href="javascript:void(0);" onclick="closeRegisterModal(); openModal();" style="color: #4B3F72;">Already have an account? Login</a>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL SCRIPTS -->
 <script>
-function openModal() {
-    document.getElementById('loginform').classList.add('show');
+function showRegister() {
+  document.getElementById('login-form-section').style.display = 'none';
+  document.getElementById('register-form-section').style.display = 'block';
 }
-function closeModal() {
-    document.getElementById('loginform').classList.remove('show');
+function showLogin() {
+  document.getElementById('register-form-section').style.display = 'none';
+  document.getElementById('login-form-section').style.display = 'block';
 }
-function openRegisterForm() {
-    document.getElementById('registerform').classList.add('show');
-}
-function closeRegisterModal() {
-    document.getElementById('registerform').classList.remove('show');
-}
-
-// Password strength meter and validation
-const password = document.getElementById('password');
-const strengthBar = document.getElementById('password-strength-bar');
-const requirements = document.querySelector('.password-requirements');
-const confirmPass = document.getElementById('confirm_password');
-
-// Password requirements
-const requirementsList = [
-    { test: (p) => p.length >= 8, text: 'At least 8 characters' },
-    { test: (p) => p.length >= 12, text: 'At least 12 characters' },
-    { test: (p) => /[A-Z]/.test(p), text: 'Contains uppercase letter' },
-    { test: (p) => /[a-z]/.test(p), text: 'Contains lowercase letter' },
-    { test: (p) => /[0-9]/.test(p), text: 'Contains number' },
-    { test: (p) => /[^A-Za-z0-9]/.test(p), text: 'Contains symbol' }
-];
-
-// Update requirements display
-function updateRequirementsDisplay() {
-    const passVal = password.value;
-    const requirements = document.querySelectorAll('.requirements-list .requirement');
-    
-    requirements.forEach(req => {
-        const text = req.textContent;
-        
-        if (text.includes('8 characters')) {
-            req.style.color = passVal.length >= 8 ? '#33cc33' : '#f00';
-        } else if (text.includes('uppercase')) {
-            req.style.color = /[A-Z]/.test(passVal) ? '#33cc33' : '#f00';
-        } else if (text.includes('lowercase')) {
-            req.style.color = /[a-z]/.test(passVal) ? '#33cc33' : '#f00';
-        } else if (text.includes('number')) {
-            req.style.color = /[0-9]/.test(passVal) ? '#33cc33' : '#f00';
-        } else if (text.includes('special character')) {
-            req.style.color = /[^A-Za-z0-9]/.test(passVal) ? '#33cc33' : '#f00';
-        }
-    });
-}
-
-// Update strength meter
-function updateStrengthMeter() {
-    const passVal = password.value;
-    let strength = 0;
-    
-    // Calculate strength based on requirements
-    requirementsList.forEach(req => {
-        if (req.test(passVal)) strength += 25;
-    });
-    
-    // Update strength bar
-    strengthBar.style.width = `${strength}%`;
-    
-    // Update bar color based on strength
-    if (strength === 0) {
-        strengthBar.style.background = 'transparent';
-    } else if (strength < 30) {
-        strengthBar.style.background = '#f00';
-    } else if (strength < 60) {
-        strengthBar.style.background = '#ff9900';
-    } else if (strength < 90) {
-        strengthBar.style.background = '#33cc33';
-    } else {
-        strengthBar.style.background = '#00cc00';
-    }
-    
-    // Add validation message
-    if (strength === 100) {
-        requirements.innerHTML += '<div style="color: #33cc33; margin-top: 8px;">Password is strong and meets all requirements!</div>';
-    }
-}
-
-// Add event listeners
-password.addEventListener('input', function() {
-    updateStrengthMeter();
-    updateRequirementsDisplay();
-});
-
-confirmPass.addEventListener('input', function() {
-    const passVal = password.value;
-    const confirmVal = this.value;
-    
-    if (passVal !== confirmVal) {
-        this.style.borderColor = '#f00';
-        this.nextElementSibling?.remove();
-        const error = document.createElement('span');
-        error.textContent = 'Passwords do not match';
-        error.style.color = '#f00';
-        error.style.fontSize = '0.85rem';
-        error.style.marginTop = '4px';
-        this.parentNode.insertBefore(error, this.nextSibling);
-    } else {
-        this.style.borderColor = '';
-        this.nextElementSibling?.remove();
-    }
-});
-
-// Form submission validation
-const registerForm = document.querySelector('#registerform form');
-if (registerForm) {
-    registerForm.addEventListener('submit', function(e) {
-        const passVal = password.value;
-        const confirmVal = confirmPass.value;
-        
-        if (!updateRequirementsDisplay()) {
-            e.preventDefault();
-            alert('Password does not meet all requirements');
-            return;
-        }
-        
-        if (passVal !== confirmVal) {
-            e.preventDefault();
-            alert('Passwords do not match');
-            return;
-        }
-    });
-}
-
-// Logout confirmation
-function confirmLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        window.location.href = 'logout.php?logout=1';
-    }
-}
-<?php if (!isset($_SESSION['login'])): ?>
-    openModal();
-<?php endif; ?>
-// Show logout success alert if redirected after logout
-<?php if (isset($_GET['logged_out']) && $_GET['logged_out'] == 1): ?>
-    alert('Logout successfully');
-<?php endif; ?>
 </script>
-
-</body>
-</html>
+<style>
+.login-modal { font-family: Arial, sans-serif; }
+.login-input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+.login-btn {
+  width: 100%;
+  padding: 10px;
+  background: #004153;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.login-btn:hover { background: #1976d2; }
+.register-btn {
+  width: 100%;
+  padding: 10px;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.register-btn:hover { background: #004153; }
+</style>
+<!-- End Modal Form -->

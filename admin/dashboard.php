@@ -92,7 +92,7 @@ if ($result) {
             margin-left: 250px;
             margin-top: 60px;
             padding: 40px 32px;
-            background: #fff;
+            background: whitesmoke;
             min-height: calc(100vh - 60px);
             width: 100%;
             box-sizing: border-box;
@@ -134,6 +134,39 @@ if ($result) {
             box-shadow: 0 2px 8px #0001;
             padding: 24px;
             margin-bottom: 24px;
+        }
+        
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        
+        .status-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 16px;
+        }
+        
+        .status-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
         }
     </style>
 </head>

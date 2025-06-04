@@ -42,16 +42,74 @@
             padding: 20px;  
             overflow-y: auto;  
         }  
+        .alert {
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+        }
+
+        .errorWrap {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .succWrap {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .alert strong {
+            font-weight: 600;
+        }
         </style>
 </head>  
 <body>  
-<?php include('includes/header.php'); ?>
-<?php include('includes/sidebar.php'); ?>
+<?php
+include('includes/header.php');
+include('includes/sidebar.php');
+include('db.php');
 
+// Handle delete action
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])) {
+    $id = intval($_GET['id']);
+    $stmt = $dbh->prepare("DELETE FROM tblusers WHERE UserID = ?");
+    if ($stmt->execute([$id])) {
+        $success_message = "User deleted successfully";
+    } else {
+        $error_message = "Error deleting user";
+    }
+}
+
+// Fetch users
+$users = array(); // Initialize as empty array
+try {
+    $sql = "SELECT UserID, FullName, EmailId, ContactNumber, dob, address, DateRegistered FROM tblusers ORDER BY DateRegistered DESC";
+    $stmt = $dbh->prepare($sql);
+    $stmt->execute();
+    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error_message = "Error fetching users: " . $e->getMessage();
+}
+?>  
 
 <div class="main-content">  
     <h4>Registered Users</h4>  
 
+    <?php if (isset($error_message)) { ?>
+        <div class="alert errorWrap">
+            <strong>ERROR</strong>: <?php echo htmlentities($error_message); ?>
+        </div>
+    <?php } elseif (isset($success_message)) { ?>
+        <div class="alert succWrap">
+            <strong>SUCCESS</strong>: <?php echo htmlentities($success_message); ?>
+        </div>
+    <?php } ?>  
     <div class="card mt-3">  
         <div class="card-header bg-light">  
             <strong>REG USERS</strong>  
@@ -83,16 +141,11 @@
                         <th>DOB</th>  
                         <th>Address</th>  
                         <th>Reg Date</th>  
+                        <th>Action</th>  
                     </tr>  
                 </thead>  
                 <tbody>  
                     <?php
-                    // Fetch users from tblusers
-                    include_once("../db.php");
-                    $sql = "SELECT FullName, EmailId, ContactNumber, dob, address, DateRegistered FROM tblusers ORDER BY DateRegistered DESC";
-                    $stmt = $dbh->prepare($sql);
-                    $stmt->execute();
-                    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     $cnt = 1;
                     if ($users) {
                         foreach ($users as $row) {
@@ -104,10 +157,13 @@
                             echo "<td>" . htmlspecialchars($row['dob']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['address']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['DateRegistered']) . "</td>";
+                            echo '<td>';
+                            echo '<a href="users.php?action=delete&id=' . $row['UserID'] . '" class="btn btn-sm btn-danger delete-user" title="Delete">Delete</a>';
+                            echo '</td>';
                             echo "</tr>";
                         }
                     } else {
-                        echo '<tr><td colspan="7" class="text-center">No users found.</td></tr>';
+                        echo '<tr><td colspan="8" class="text-center">No users found.</td></tr>';
                     }
                     ?>
                 </tbody>  

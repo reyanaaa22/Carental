@@ -10,6 +10,29 @@ if (!isset($_SESSION['login']) || empty($_SESSION['login']) || !isset($_SESSION[
     exit;
 }
 
+// Handle booking cancellation
+if (isset($_GET['action']) && $_GET['action'] === 'cancel' && isset($_GET['id'])) {
+    $bookingId = intval($_GET['id']);
+    $userId = $_SESSION['user_id'];
+    
+    // Verify booking belongs to the user
+    $stmtVerify = $dbh->prepare("SELECT id FROM bookings WHERE id = ? AND UserID = ? AND Status = 0");
+    $stmtVerify->execute([$bookingId, $userId]);
+    
+    if ($stmtVerify->rowCount() > 0) {
+        // Update status to 2 (Cancelled)
+        $stmtCancel = $dbh->prepare("UPDATE bookings SET Status = 2 WHERE id = ? AND UserID = ?");
+        $stmtCancel->execute([$bookingId, $userId]);
+        
+        // Redirect back to manage_booking.php
+        header('Location: manage_booking.php?cancelled=1');
+        exit;
+    } else {
+        header('Location: manage_booking.php?error=1');
+        exit;
+    }
+}
+
 // Get logged-in user info
 $userId = $_SESSION['user_id'];
 $fullName = $_SESSION['fname'] ?? '';
@@ -37,6 +60,7 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="en">
 <head>
     <title>Manage Bookings</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {  
     font-family: Arial, sans-serif;  
@@ -117,6 +141,10 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: #b45309;
             background: #fef3c7;
         }
+        .status-cancelled {
+            color: #dc2626;
+            background: #fee2e2;
+        }
     </style>
 </head>
 <body>
@@ -146,11 +174,16 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="booking-info">
                             <div class="booking-title">
                                 <?= htmlentities($booking['brand_name'] . ' , ' . $booking['vehicle_title']) ?>
-                                <?php if ($booking['Status'] == 1): ?>
-                                    <span class="booking-status status-confirmed">Confirmed</span>
-                                <?php else: ?>
-                                    <span class="booking-status status-pending">Pending</span>
-                                <?php endif; ?>
+                                <?php 
+                                if ($booking['Status'] == 1) {
+                                    echo '<span class="booking-status status-confirmed">Confirmed</span>';
+                                } elseif ($booking['Status'] == 0) {
+                                    echo '<span class="booking-status status-pending">Pending</span>';
+                                    echo '<a href="manage_booking.php?action=cancel&id=' . $booking['id'] . '" class="text-danger ms-2" onclick="return confirm(\'Are you sure you want to cancel this booking?\')">Cancel</a>';
+                                } else {
+                                    echo '<span class="booking-status status-cancelled">Cancelled</span>';
+                                }
+                                ?>
                             </div>
                             <div class="booking-dates">
                                 From: <?= htmlentities($booking['FromDate']) ?><br>
@@ -158,6 +191,12 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                             <div class="booking-message">
                                 Message: <?= htmlentities($booking['message']) ?>
+                            </div>
+                            <div class="booking-actions mt-2">
+                                <?php if ($booking['Status'] == 0): ?>
+                                    <a href="admin/manage_bookings.php?action=approve&id=<?= $booking['id'] ?>" class="btn btn-success btn-sm me-2" onclick="return confirm('Are you sure you want to approve this booking?')">Approve</a>
+                                    <a href="admin/manage_bookings.php?action=cancel&id=<?= $booking['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to cancel this booking?')">Cancel</a>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

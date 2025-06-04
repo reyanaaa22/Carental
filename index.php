@@ -22,11 +22,13 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
 
   <style>
     .car-card {
-      transition: background 0.3s, color 0.3s;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px rgba(0, 123, 255, 0.2);
     }
     .car-card:hover {
       background: #004153 !important;
       color: #fff !important;
+      box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
     }
     .car-card:hover h6 a,
     .car-card:hover .car-price,
@@ -87,24 +89,6 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
         sidebar.classList.remove('show');  
       }  
     });  
-
-    function toggleLoginForm() {  
-      const form = document.getElementById('loginForm');  
-      if (form) {  
-        form.style.display = (form.style.display === 'block' ? 'none' : 'block');  
-      }  
-      const regForm = document.getElementById('registerForm');  
-      if (regForm) regForm.style.display = 'none';  
-    }  
-
-    function toggleRegisterForm() {  
-      const form = document.getElementById('registerForm');  
-      if (form) {  
-        form.style.display = (form.style.display === 'block' ? 'none' : 'block');  
-      }  
-      const loginForm = document.getElementById('loginForm');  
-      if (loginForm) loginForm.style.display = 'none';  
-    }  
   </script>  
 </head>  
 <body>  

@@ -4,109 +4,49 @@ include('db.php');
 
 // Initialize variables
 $error = "";
-$max_attempts = 5; // Maximum failed login attempts
-$lockout_time = 300; // Lockout time in seconds (5 minutes)
-
-// reCAPTCHA keys
-$recaptcha_site_key = '6LeY3TwrAAAAAKyLLLsFmTXtDKvvLTeyUcNnUX5W';
-$recaptcha_secret_key = '6LeY3TwrAAAAACzCiOrM_NrfuSlBfGYR5ml_orT5';
 
 // Handle form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
     $password = trim($_POST['password']);
-    $recaptcha_response = $_POST['g-recaptcha-response'] ?? '';
 
-    // Verify reCAPTCHA first
-    $recaptcha_url = 'https://www.google.com/recaptcha/api/siteverify';
-    $recaptcha_data = [
-        'secret' => $recaptcha_secret_key,
-        'response' => $recaptcha_response,
-        'remoteip' => $_SERVER['REMOTE_ADDR']
-    ];
-    $recaptcha_options = [
-        'http' => [
-            'header' => "Content-type: application/x-www-form-urlencoded\r\n",
-            'method' => 'POST',
-            'content' => http_build_query($recaptcha_data)
-        ]
-    ];
-    $recaptcha_context = stream_context_create($recaptcha_options);
-    $recaptcha_result = file_get_contents($recaptcha_url, false, $recaptcha_context);
-    $recaptcha_success = json_decode($recaptcha_result)->success ?? false;
+    // Verify email and password
+    $sql = "SELECT * FROM admin WHERE email = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-    if (!$recaptcha_success) {
-        $error = "Please complete the reCAPTCHA verification.";
-    } else {
-        // Check if the account is locked
-        $check_lock = $conn->prepare("SELECT failed_attempts, last_failed_login FROM admin WHERE email = ?");
-        $check_lock->bind_param("s", $email);
-        $check_lock->execute();
-        $lock_result = $check_lock->get_result();
+    if ($result->num_rows == 1) {
+        $admin = $result->fetch_assoc();
 
-        if ($lock_result->num_rows == 1) {
-            $admin = $lock_result->fetch_assoc();
+        if (password_verify($password, $admin['password'])) {
+            // Store admin info in session
+            $_SESSION['admin_id'] = $admin['id'];
+            $_SESSION['admin_name'] = $admin['first_name'] . " " . $admin['last_name'];
+            $_SESSION['admin_email'] = $admin['email'];
 
-            // Check if the account is locked
-            if ($admin['failed_attempts'] >= $max_attempts && (time() - strtotime($admin['last_failed_login'])) < $lockout_time) {
-                $error = "Account locked. Please try again after 5 minutes.";
-            } else {
-                // Verify email and password
-                $sql = "SELECT * FROM admin WHERE email = ?";
-                $stmt = $conn->prepare($sql);
-                $stmt->bind_param("s", $email);
-                $stmt->execute();
-                $result = $stmt->get_result();
-
-                if ($result->num_rows == 1) {
-                    $admin = $result->fetch_assoc();
-
-                    if (password_verify($password, $admin['password'])) {
-                        // Reset failed attempts on successful login
-                        $reset_attempts = $conn->prepare("UPDATE admin SET failed_attempts = 0 WHERE email = ?");
-                        $reset_attempts->bind_param("s", $email);
-                        $reset_attempts->execute();
-
-                        // Store admin info in session
-                        $_SESSION['admin_id'] = $admin['id'];
-                        $_SESSION['admin_name'] = $admin['first_name'] . " " . $admin['last_name'];
-                        $_SESSION['admin_email'] = $admin['email'];
-
-                        // Log successful login in audit log
-                        $action = "Successful Login";
-                        $ip_address = $_SERVER['REMOTE_ADDR'];
-                        $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                        $log_sql = "INSERT INTO audit_log (admin_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)";
-                        $log_stmt = $conn->prepare($log_sql);
-                        $log_stmt->bind_param("isss", $admin['id'], $action, $ip_address, $user_agent);
-                        $log_stmt->execute();
-
-                        header("Location: dashboard.php"); // Redirect to dashboard
-                        exit();
-                    } else {
-                        // Increment failed attempts
-                        $update_attempts = $conn->prepare("UPDATE admin SET failed_attempts = failed_attempts + 1, last_failed_login = NOW() WHERE email = ?");
-                        $update_attempts->bind_param("s", $email);
-                        $update_attempts->execute();
-
-                        // Log failed login attempt
-                        $action = "Failed Login";
-                        $ip_address = $_SERVER['REMOTE_ADDR'];
-                        $user_agent = $_SERVER['HTTP_USER_AGENT'];
-                        $log_sql = "INSERT INTO audit_log (action, user_email, ip_address, user_agent) VALUES (?, ?, ?, ?)";
-                        $log_stmt = $conn->prepare($log_sql);
-                        $log_stmt->bind_param("ssss", $action, $email, $ip_address, $user_agent);
-                        $log_stmt->execute();
-
-                        $error = "Incorrect password.";
-                    }
-                } else {
-                    $error = "Admin not found.";
-                }
-            }
+            header("Location: dashboard.php"); // Redirect to dashboard
+            exit();
         } else {
-            $error = "Admin not found.";
+            // Increment failed attempts
+            $update_attempts = $conn->prepare("UPDATE admin SET failed_attempts = failed_attempts + 1, last_failed_login = NOW() WHERE email = ?");
+            $update_attempts->bind_param("s", $email);
+            $update_attempts->execute();
+
+            // Log failed login attempt
+            $action = "Failed Login";
+            $ip_address = $_SERVER['REMOTE_ADDR'];
+            $user_agent = $_SERVER['HTTP_USER_AGENT'];
+            $log_sql = "INSERT INTO audit_log (action, user_email, ip_address, user_agent) VALUES (?, ?, ?, ?)";
+            $log_stmt = $conn->prepare($log_sql);
+            $log_stmt->bind_param("ssss", $action, $email, $ip_address, $user_agent);
+            $log_stmt->execute();
+
+            $error = "Incorrect password.";
         }
+    } else {
+        $error = "Admin not found.";
     }
 }
 ?>
@@ -245,8 +185,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </div>
       </div>
 
-      <!-- Google reCAPTCHA -->
-      <div class="g-recaptcha" data-sitekey="<?php echo $recaptcha_site_key; ?>"></div>
+      <div class="g-recaptcha" data-sitekey="6LeY3TwrAAAAAKyLLLsFmTXtDKvvLTeyUcNnUX5W"></div>
 
       <div class="button">
         <input type="submit" value="Login">
