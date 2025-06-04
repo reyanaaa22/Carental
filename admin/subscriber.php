@@ -25,29 +25,7 @@ $subscribers = $stmt->fetchAll(PDO::FETCH_ASSOC);
             margin: 0;  
             overflow: hidden;  
         }  
-
-        header {  
-            position: fixed;  
-            top: 0;  
-            left: 0;  
-            width: 100%;  
-            height: 100px;  
-            background-color: #f8f9fa;  
-            z-index: 1000;  
-        }  
-
-        .sidebar {  
-            position: fixed;  
-            top: 100px;  
-            left: 0;  
-            width: 250px;  
-            height: calc(100vh - 100px);  
-            background-color: #f1f1f1;  
-            overflow-y: auto;  
-            padding: 15px;  
-            z-index: 999;  
-        }  
-
+        
         .main-content {  
             position: absolute;  
             top: 100px;  

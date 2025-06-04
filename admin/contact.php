@@ -29,7 +29,7 @@ $stmt->execute();
 $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-<div class="container mt-4">  
+<div class="container mt-10">  
     <h4>Manage Contact Us Queries</h4>  
 
     <div class="card mt-3">  

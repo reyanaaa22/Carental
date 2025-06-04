@@ -72,6 +72,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         $_SESSION['admin_name'] = $admin['first_name'] . " " . $admin['last_name'];
                         $_SESSION['admin_email'] = $admin['email'];
 
+                        // Create login notification
+                        $notification_sql = "INSERT INTO notifications (message, is_read, created_at) 
+                                          VALUES (?, 0, NOW())";
+                        $notification_stmt = $conn->prepare($notification_sql);
+                        $login_message = "Admin " . $admin['first_name'] . " " . $admin['last_name'] . " logged in";
+                        $notification_stmt->bind_param("s", $login_message);
+                        $notification_stmt->execute();
+
                         // Log successful login in audit log
                         $action = "Successful Login";
                         $ip_address = $_SERVER['REMOTE_ADDR'];

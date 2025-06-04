@@ -354,6 +354,33 @@ INSERT INTO `subscribers` (`id`, `email`, `subscription_date`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `testimonials`
+--
+
+CREATE TABLE `testimonials` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `user_name` varchar(255) NOT NULL,
+  `testimonial` text NOT NULL,
+  `rating` int(11) NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  `status` enum('pending','approved','rejected') DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `tblusers`(`UserID`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `testimonials`
+--
+
+INSERT INTO `testimonials` (`id`, `user_id`, `user_name`, `testimonial`, `rating`, `status`, `created_at`) VALUES
+(1, 2, 'reyna', 'Great service! The car was in perfect condition and the rental process was smooth.', 5, 'approved', '2025-05-15 08:30:00'),
+(2, 3, 'Cora Laude Boyboy', 'Very professional staff and excellent vehicle selection.', 4, 'approved', '2025-05-16 10:15:00'),
+(3, 5, 'Marj', 'Highly recommend their services. Will definitely rent again!', 5, 'approved', '2025-05-18 14:45:00');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tblusers`
 --
 
@@ -487,7 +514,7 @@ INSERT INTO `vehicles` (`id`, `vehicle_title`, `brand_name`, `vehicle_overview`,
 (21, '3 Series', 'BMW', 'The BMW 3 Series is a compact luxury sedan known for its sporty performance, elegant design, and advanced technology. It offers a balanced mix of comfort, driving dynamics, and fuel efficiency, making it a favorite for both daily commutes and spirited drives.', 6000.00, 'petrol', 2021, 5, 'uploads/BMW SERIES 3.png', 'uploads/BMW.png', 'uploads/BMW BLACK.png', 'uploads/BMW BLUE.png', '', 'Air Conditioner,Power Door Locks,AntiLock Braking System,Brake Assist,Power Steering,Driver Airbag,Passenger Airbag,Power Windows,CD Player,Central Locking,Crash Sensor,Leather Seats', '2025-05-04 14:05:25'),
 (22, 'Vios', 'Toyota', 'The Toyota Vios is a popular subcompact sedan in the Philippines, known for its affordability, reliability, and fuel efficiency. It\\\'s a top choice for both private owners and fleet operators.', 1799.00, 'petrol', 2025, 5, 'uploads/Screenshot 2025-05-04 221054.png', 'uploads/Screenshot 2025-05-04 221107.png', 'uploads/Screenshot 2025-05-04 221021.png', 'uploads/Screenshot 2025-05-04 221038.png', 'uploads/Screenshot 2025-05-04 221121.png', 'Air Conditioner,Power Door Locks,AntiLock Braking System,Brake Assist,Power Steering,Driver Airbag,Passenger Airbag,Power Windows,CD Player,Central Locking,Crash Sensor,Leather Seats', '2025-05-04 14:17:46'),
 (23, 'Jimny', 'Suzuki', 'The Suzuki Jimny 5-Door (2025) is a compact SUV known for its strong off-road capability and practical city use. It features a 1.5L engine, 4WD system, and is available in manual and automatic transmissions. With seating for four, it has a rugged design, 210 mm ground clearance, and essential safety features like airbags, ABS, and hill control. In the Philippines, it starts at ₱1,558,000.', 2500.00, 'petrol', 2022, 4, 'uploads/JIMNY GREEN.jpg', 'uploads/JIMNY BLACK.jpg', 'uploads/JIMNY WHITE.jpg', 'uploads/JIMNY.webp', 'uploads/Screenshot 2025-05-04 222812.png', 'Air Conditioner,Power Door Locks,AntiLock Braking System,Brake Assist,Power Steering,Driver Airbag,Passenger Airbag,Power Windows,CD Player,Central Locking,Crash Sensor,Leather Seats', '2025-05-04 14:33:48'),
-(24, 'Civic', 'Honda', 'The Honda Civic is a compact car known for its reliability, fuel efficiency, and modern styling. It’s ideal for city driving and long-distance travel, offering a comfortable interior and advanced safety features.', 1500.00, 'petrol', 2023, 5, 'uploads/HONDA.avif', 'uploads/BLACK.jpg', 'uploads/HONDA RED.jpg', 'uploads/HONDA BLUE.jpg', 'uploads/WHITE.jpg', 'Air Conditioner,Power Door Locks,AntiLock Braking System,Brake Assist,Power Steering,Driver Airbag,Passenger Airbag,Power Windows,CD Player,Central Locking,Crash Sensor,Leather Seats', '2025-05-04 14:51:27'),
+(24, 'Civic', 'Honda', 'The Honda Civic is a compact car known for its reliability, fuel efficiency, and modern styling. It's ideal for city driving and long-distance travel, offering a comfortable interior and advanced safety features.', 1500.00, 'petrol', 2023, 5, 'uploads/HONDA.avif', 'uploads/BLACK.jpg', 'uploads/HONDA RED.jpg', 'uploads/HONDA BLUE.jpg', 'uploads/WHITE.jpg', 'Air Conditioner,Power Door Locks,AntiLock Braking System,Brake Assist,Power Steering,Driver Airbag,Passenger Airbag,Power Windows,CD Player,Central Locking,Crash Sensor,Leather Seats', '2025-05-04 14:51:27'),
 (25, 'Jeep', 'Suzuki', 'fff', 500.00, 'petrol', 2022, 6, 'uploads/vroom_1.png', 'uploads/1925973a-30dd-49e4-b4a3-4411b24c34e5-6-_11_.webp', 'uploads/1925973a-30dd-49e4-b4a3-4411b24c34e5-6-_11__1.webp', '', '', 'Air Conditioner', '2025-05-08 04:36:11'),
 (26, 'Jeep', 'BMW', 'ggg', 500.00, 'petrol', 2022, 6, 'uploads/HONDA RED_1.jpg', 'uploads/GRAY.jpg', 'uploads/HONDA_1.avif', '', '', 'Air Conditioner,Power Steering', '2025-05-08 04:58:08');
 
