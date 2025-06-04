@@ -103,7 +103,11 @@ $stmt->execute();
 $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
+<<<<<<< HEAD
 <div class="main-content">  
+=======
+<div class="container mt-10">  
+>>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
     <h4>Manage Contact Us Queries</h4>  
 
     <?php if (isset($error_message)) { ?>

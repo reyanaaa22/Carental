@@ -42,7 +42,7 @@ if ($stmt->execute()) {
     </a>
     <div class="profile-container" onclick="toggleDropdown()">
       <img src="<?php echo htmlspecialchars($adminPic); ?>" alt="Admin Profile" />
-      <span><?php echo htmlspecialchars($adminName); ?></span>
+      <span class="admin-name"><?php echo htmlspecialchars($adminName); ?></span>
       <div class="dropdown-menu" id="profileDropdown">
         <a href="profile.php">Profile Settings</a>
         <a href="activity_log.php">Activity Log</a>
@@ -119,7 +119,7 @@ if ($stmt->execute()) {
     }
 
     .notification-icon {
-      font-size: 20px;
+      font-size: 13px;
       cursor: pointer;
       position: relative;
     }
@@ -145,14 +145,14 @@ if ($stmt->execute()) {
     .profile-container img {
       width: 35px;
       height: 35px;
-      border-radius: 50%;
-      margin-right: 10px;
+      border-radius: 55%;
+      margin-right: 15px;
     }
 
     .dropdown-menu {
       display: none;
       position: absolute;
-      top: 50px;
+      top: 45px;
       right: 0;
       background-color: white;
       color: black;

@@ -54,7 +54,7 @@ $result = $conn->query($sql);
 
         .sidebar {
             position: fixed;
-            top: 100px; /* height of the header */
+            top: 100px; /* height f the header */
             left: 0;
             width: 250px;
             height: calc(100vh - 100px);
@@ -65,7 +65,7 @@ $result = $conn->query($sql);
 
         .main-content {
             position: absolute;
-            top: 100px;
+            top: 80px;
             left: 250px;
             width: calc(100% - 250px);
             height: calc(100vh - 100px);

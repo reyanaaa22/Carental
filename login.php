@@ -371,7 +371,48 @@ if (isset($_POST['login'])) {
 // REMOVE this duplicate registration block below (if present):
 /*
 if (isset($_POST['register'])) {
+<<<<<<< HEAD
     // ...duplicate registration logic...
+=======
+    $fullname = htmlspecialchars($_POST['fullname']);
+    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+    $contact = htmlspecialchars($_POST['contact']);
+    $dob = isset($_POST['dob']) ? $_POST['dob'] : null;
+    $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
+    $password = $_POST['password'];
+    $confirmpassword = $_POST['confirmpassword'];
+    $password = trim($password);
+
+    if ($password !== $confirmpassword) {
+        echo "<script>alert('Passwords do not match!');</script>";
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/', $password)) {
+        echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
+    } else {
+        $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            echo "<script>alert('Email already registered!');</script>";
+        } else {
+            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+            $stmt = $conn->prepare("INSERT INTO tblusers (FullName, EmailId, ContactNumber, dob, address, Password) VALUES (:fullname, :email, :contact, :dob, :address, :password)");
+            $stmt->bindParam(':fullname', $fullname);
+            $stmt->bindParam(':email', $email);
+            $stmt->bindParam(':contact', $contact);
+            $stmt->bindParam(':dob', $dob);
+            $stmt->bindParam(':address', $address);
+            $stmt->bindParam(':password', $hashedPassword);
+
+            if ($stmt->execute()) {
+                echo "<script>alert('Registration successful. You can now login!');</script>";
+                echo "<script>openModal();</script>";
+            } else {
+                echo "<script>alert('Registration failed. Try again.');</script>";
+            }
+        }
+    }
+>>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
 }
 */
 ?>
@@ -420,6 +461,163 @@ function showLogin() {
   document.getElementById('register-form-section').style.display = 'none';
   document.getElementById('login-form-section').style.display = 'block';
 }
+<<<<<<< HEAD
+=======
+function openRegisterForm() {
+    document.getElementById('registerform').classList.add('show');
+}
+function closeRegisterModal() {
+    document.getElementById('registerform').classList.remove('show');
+}
+
+// Password strength meter and validation
+const password = document.getElementById('password');
+const strengthBar = document.getElementById('password-strength-bar');
+const requirements = document.querySelector('.password-requirements');
+const confirmPass = document.getElementById('confirm_password');
+
+// Password requirements
+const requirementsList = [
+    { test: (p) => p.length >= 8, text: 'At least 8 characters' },
+    { test: (p) => p.length >= 12, text: 'At least 12 characters' },
+    { test: (p) => /[A-Z]/.test(p), text: 'Contains uppercase letter' },
+    { test: (p) => /[a-z]/.test(p), text: 'Contains lowercase letter' },
+    { test: (p) => /[0-9]/.test(p), text: 'Contains number' },
+    { test: (p) => /[^A-Za-z0-9]/.test(p), text: 'Contains symbol' }
+];
+
+// Update requirements display
+function updateRequirementsDisplay() {
+    const passVal = password.value;
+    let isValid = true; // Track whether all requirements are met
+
+    const requirements = document.querySelectorAll('.requirements-list .requirement');
+    
+    requirements.forEach(req => {
+        const text = req.textContent;
+        
+        if (text.includes('8 characters')) {
+            const ok = passVal.length >= 8;
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
+        } else if (text.includes('uppercase')) {
+            const ok = /[A-Z]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
+        } else if (text.includes('lowercase')) {
+            const ok = /[a-z]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
+        } else if (text.includes('number')) {
+            const ok = /[0-9]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
+        } else if (text.includes('special character')) {
+            const ok = /[^A-Za-z0-9]/.test(passVal);
+            req.style.color = ok ? '#33cc33' : '#f00';
+            if (!ok) isValid = false;
+        }
+    });
+
+    return isValid; // ✅ Return true only if all requirements are satisfied
+}
+
+
+// Update strength meter
+function updateStrengthMeter() {
+    const passVal = password.value;
+    let strength = 0;
+    
+    // Calculate strength based on requirements
+    requirementsList.forEach(req => {
+        if (req.test(passVal)) strength += 25;
+    });
+    
+    // Update strength bar
+    strengthBar.style.width = `${strength}%`;
+    
+    // Update bar color based on strength
+    if (strength === 0) {
+        strengthBar.style.background = 'transparent';
+    } else if (strength < 30) {
+        strengthBar.style.background = '#f00';
+    } else if (strength < 60) {
+        strengthBar.style.background = '#ff9900';
+    } else if (strength < 90) {
+        strengthBar.style.background = '#33cc33';
+    } else {
+        strengthBar.style.background = '#00cc00';
+    }
+    
+    // Add validation message
+    if (strength === 100) {
+        requirements.innerHTML += '<div style="color: #33cc33; margin-top: 8px;">Password is strong and meets all requirements!</div>';
+    }
+}
+
+// Add event listeners
+password.addEventListener('input', function() {
+    updateStrengthMeter();
+    updateRequirementsDisplay();
+});
+
+confirmPass.addEventListener('input', function() {
+    const passVal = password.value;
+    const confirmVal = this.value;
+    
+    if (passVal !== confirmVal) {
+        this.style.borderColor = '#f00';
+        this.nextElementSibling?.remove();
+        const error = document.createElement('span');
+        error.textContent = 'Passwords do not match';
+        error.style.color = '#f00';
+        error.style.fontSize = '0.85rem';
+        error.style.marginTop = '4px';
+        this.parentNode.insertBefore(error, this.nextSibling);
+    } else {
+        this.style.borderColor = '';
+        this.nextElementSibling?.remove();
+    }
+});
+
+// Form submission validation
+const registerForm = document.querySelector('#registerform form');
+if (registerForm) {
+    registerForm.addEventListener('submit', function(e) {
+        const password = document.getElementById('password');
+        const confirmPass = document.getElementById('confirm_password');
+        const passVal = password.value;
+        const confirmVal = confirmPass.value;
+
+        if (!updateRequirementsDisplay()) {
+            e.preventDefault();
+            alert('Password does not meet all requirements');
+            return;
+        }
+
+        if (passVal !== confirmVal) {
+            e.preventDefault();
+            alert('Passwords do not match');
+            return;
+        }
+    });
+}
+
+
+// Logout confirmation
+function confirmLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        window.location.href = 'logout.php?logout=1';
+    }
+}
+<?php if (!isset($_SESSION['login'])): ?>
+    openModal();
+<?php endif; ?>
+// Show logout success alert if redirected after logout
+<?php if (isset($_GET['logged_out']) && $_GET['logged_out'] == 1): ?>
+    alert('Logout successfully');
+<?php endif; ?>
+>>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
 </script>
 <style>
 .login-modal { font-family: Arial, sans-serif; }

@@ -10,7 +10,7 @@ $sql = "SELECT id, vehicle_title, brand_name, price_per_day, fuel_type, model_ye
 $query = $dbh->prepare($sql);  
 $query->execute();  
 $results = $query->fetchAll(PDO::FETCH_OBJ);  
-?>  
+?>
 
 <!DOCTYPE html>  
 <html lang="en">  
@@ -106,7 +106,7 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
     <h1 data-translate="Ormoc Car Rental Service" style="font-size: 3rem; margin-bottom: 5px;">Ormoc Car Rental Service</h1>  
     <p class="tagline" data-translate="Your journey starts here — fast, safe, and affordable car rentals in Ormoc." style="font-size: 1.2rem; color: #f0f0f0; margin-top: 0; margin-bottom: 15px; font-style: italic;">Your journey starts here — fast, safe, and affordable car rentals in Ormoc.</p>  
     <div class="hero-buttons">  
-      <button class="book" data-translate="Book Now" onclick="location.href='book.php'">Book Now</button>  
+      <button class="book" data-translate="Book Now" onclick="location.href=''">Book Now</button>  
       <button class="explore" data-translate="Explore Us" onclick="location.href='explore.php'">Explore Us</button>  
     </div>  
   </div>  

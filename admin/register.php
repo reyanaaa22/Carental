@@ -20,10 +20,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Validate password complexity
-    if (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password)) {
+    $password = trim($password);
+    if (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/', $password)) {
         echo "<p>Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.</p>";
         exit;
     }
+
 
     // Check if passwords match
     if ($password !== $confirm_password) {

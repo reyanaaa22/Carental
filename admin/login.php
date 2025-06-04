@@ -26,8 +26,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['admin_name'] = $admin['first_name'] . " " . $admin['last_name'];
             $_SESSION['admin_email'] = $admin['email'];
 
-            header("Location: dashboard.php"); // Redirect to dashboard
-            exit();
+            // Check if the account is locked
+            if ($admin['failed_attempts'] >= 5 && (time() - strtotime($admin['last_failed_login'])) < 300) {
+                $error = "Account locked. Please try again after 5 minutes.";
+            } else {
+                // Reset failed attempts on successful login
+                $reset_attempts = $conn->prepare("UPDATE admin SET failed_attempts = 0 WHERE email = ?");
+                $reset_attempts->bind_param("s", $email);
+                $reset_attempts->execute();
+                
+                // Log successful login
+                $log_stmt = $conn->prepare("INSERT INTO admin_login_logs (admin_id, login_time, ip_address) VALUES (?, NOW(), ?)");
+                $log_stmt->bind_param("ss", $admin['id'], $_SERVER['REMOTE_ADDR']);
+                $log_stmt->execute();
+                
+                header("Location: dashboard.php");
+                exit();
+            }
+
+                        // Store admin info in session
+                        $_SESSION['admin_id'] = $admin['id'];
+                        $_SESSION['admin_name'] = $admin['first_name'] . " " . $admin['last_name'];
+                        $_SESSION['admin_email'] = $admin['email'];
+
+                        // Create login notification
+                        $notification_sql = "INSERT INTO notifications (message, is_read, created_at) 
+                                          VALUES (?, 0, NOW())";
+                        $notification_stmt = $conn->prepare($notification_sql);
+                        $login_message = "Admin " . $admin['first_name'] . " " . $admin['last_name'] . " logged in";
+                        $notification_stmt->bind_param("s", $login_message);
+                        $notification_stmt->execute();
+
+                        // Log successful login in audit log
+                        $action = "Successful Login";
+                        $ip_address = $_SERVER['REMOTE_ADDR'];
+                        $user_agent = $_SERVER['HTTP_USER_AGENT'];
+                        $log_sql = "INSERT INTO audit_log (admin_id, action, ip_address, user_agent) VALUES (?, ?, ?, ?)";
+                        $log_stmt = $conn->prepare($log_sql);
+                        $log_stmt->bind_param("isss", $admin['id'], $action, $ip_address, $user_agent);
+                        $log_stmt->execute();
+
+                        header("Location: dashboard.php"); // Redirect to dashboard
+                    }
+                } else {
+                    $error = "Admin not found.";
+                }
+            }
+>>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
         } else {
             // Increment failed attempts
             $update_attempts = $conn->prepare("UPDATE admin SET failed_attempts = failed_attempts + 1, last_failed_login = NOW() WHERE email = ?");

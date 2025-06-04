@@ -90,7 +90,7 @@ if ($result) {
         }
         .main-content, .ts-main-content {
             margin-left: 250px;
-            margin-top: 60px;
+            margin-top: 50px;
             padding: 40px 32px;
             background: whitesmoke;
             min-height: calc(100vh - 60px);

@@ -28,7 +28,7 @@
 	align-items: center;
 	color: #fff;
 	text-decoration: none;
-	padding: 12px 20px;
+	padding: 8px 15px;
 	transition: background 0.3s;
 	cursor: pointer;
 	justify-content: flex-start;
@@ -101,10 +101,15 @@
 </li>
 
 <li><a href="../admin/manage_bookings.php"><i class="fa fa-calendar-check"></i> Manage Booking</a></li>
+<<<<<<< HEAD
+=======
+<li><a href="../admin/notification.php"><i class="fas fa-bell"></i>Notifications</a></li>
+<li><a href="../admin/activity_log.php"><i class="fas fa-history"></i>Activity Log</a></li>
+<li><a href="../admin/testimonials.php"><i class="fa fa-comments"></i> Manage Testimonials</a></li>
+>>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
 <li><a href="../admin/contact.php"><i class="fa fa-envelope"></i> Contact Us</a></li>
 <li><a href="../admin/users.php"><i class="fa fa-users"></i> Reg Users</a></li>
 <li><a href="../admin/page.php"><i class="fa fa-file-alt"></i> Manage Pages</a></li>
-<li><a href="../admin/update-contactinfo.php"><i class="fa fa-phone-alt"></i> Update Contact Info</a></li>
 <li><a href="../admin/subscriber.php"><i class="fa fa-bell"></i> Manage Subscribers</a></li>
 
 	</ul>
