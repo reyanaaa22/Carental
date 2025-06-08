@@ -24,6 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
 }
 ?>
 
+<!-- SVG WAVE ABOVE FOOTER -->
+<div class="footer-wave">
+  <svg viewBox="0 0 1440 120" width="100%" height="120" preserveAspectRatio="none" style="display:block;">
+    <path d="M0,32 C360,120 1080,0 1440,80 L1440,120 L0,120 Z" fill="#222"/>
+    <path d="M0,80 C480,0 960,160 1440,40 L1440,120 L0,120 Z" fill="url(#footerGradient)" fill-opacity="0.5"/>
+    <defs>
+      <linearGradient id="footerGradient" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ff9800"/>
+        <stop offset="100%" stop-color="#222"/>
+      </linearGradient>
+    </defs>
+  </svg>
+</div>
+
 <footer style="background: #222; color: #fff; padding: 30px 20px; text-align: center;">
   <div style="max-width: 1200px; margin: auto; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
     <!-- Left Section -->
@@ -33,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
 
       <div style="margin: 15px 0;">
         <p><strong>Phone:</strong> +63 9567833665</p>
-        <p><strong>Email:</strong> ormoc.carental@gmail.com</p>
+        <p><strong>Email:</strong> contact@ormoccarrental.com</p>
         <p><strong>Location:</strong> Brgy. Cogon, Ormoc City, Leyte</p>
       </div>
 

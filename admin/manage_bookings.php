@@ -22,26 +22,6 @@ if (isset($_GET['action'], $_GET['id'])) {
             $log_stmt->execute([$admin_id, $log_action]);
         }
     } elseif ($action === 'cancel') {
-<<<<<<< HEAD
-        // Check if booking is confirmed before cancelling
-        $stmtCheck = $dbh->prepare("SELECT Status FROM bookings WHERE id = ?");
-        $stmtCheck->execute([$id]);
-        $booking = $stmtCheck->fetch(PDO::FETCH_ASSOC);
-        
-        if ($booking && $booking['Status'] != 1) { // Only allow cancel if not confirmed
-            // Update status to 2 (Cancelled)
-            $stmt = $dbh->prepare("UPDATE bookings SET Status = 2 WHERE id = ?");
-            if ($stmt->execute([$id])) {
-                // Log the action in the activity_log table
-                $log_action = "Cancelled booking ID: $id";
-                $log_stmt = $dbh->prepare("INSERT INTO activity_log (admin_id, action) VALUES (?, ?)");
-                $log_stmt->execute([$admin_id, $log_action]);
-            }
-        } else {
-            // Redirect with error if trying to cancel confirmed booking
-            header('Location: manage_bookings.php?error=1');
-            exit;
-=======
         // Update status to 2 (Cancelled)
         $stmt = $dbh->prepare("UPDATE bookings SET Status = 2 WHERE id = ?");
         if ($stmt->execute([$id])) {
@@ -49,7 +29,6 @@ if (isset($_GET['action'], $_GET['id'])) {
             $log_action = "Cancelled booking ID: $id";
             $log_stmt = $dbh->prepare("INSERT INTO activity_log (admin_id, action) VALUES (?, ?)");
             $log_stmt->execute([$admin_id, $log_action]);
->>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
         }
     }
 

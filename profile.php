@@ -45,7 +45,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt = $dbh->prepare("UPDATE tblusers SET FullName=?, EmailId=?, ContactNumber=?, Password=?, profile_image=? WHERE UserID=?");
     $stmt->execute([$fullName, $email, $contact, $password, $profileImage, $userId]);
 
-    echo "<script>alert('Profile updated successfully!');</script>";
+    // Log the profile update with changed fields
+    $updatedFields = [];
+    if (isset($_POST['FullName']) && !empty($_POST['FullName'])) $updatedFields[] = 'name';
+    if (isset($_POST['EmailId']) && !empty($_POST['EmailId'])) $updatedFields[] = 'email';
+    if (isset($_POST['ContactNumber']) && !empty($_POST['ContactNumber'])) $updatedFields[] = 'phone';
+    if (isset($_FILES['profile_image']) && $_FILES['profile_image']['size'] > 0) $updatedFields[] = 'profile image';
+    
+    logUserActivity($dbh, $_SESSION['user_id'], 'profile_update', ['fields' => $updatedFields]);
+    
+    $_SESSION['success'] = "Profile updated successfully";
+    header('Location: profile.php');
+    exit();
 }
 ?>
 
@@ -56,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .profile-container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+        .profile-container { max-width: 600px; margin: 10px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 32px; }
         .profile-img { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; border: 2px solid #eee; }
         .profile-img-wrapper {
             position: relative;
@@ -80,9 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         input[type="file"].d-none {
             display: none;
         }
+
     </style>
-</head>
-<body>
 <div class="profile-container">
     <h3>My Profile</h3>
     <?php if (!empty($success)): ?>

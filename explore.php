@@ -23,6 +23,7 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
 <!-- Explore Cars Section -->  
 <section class="explore-section">  
   <div class="container">  
+    
     <h1>Explore Our Cars</h1>  
     <p>Choose the perfect car for your needs from our wide selection!</p>  
 
@@ -43,11 +44,6 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
         <a href="vehicle-details.php?vhid=<?php echo htmlentities($result->id); ?>">  
           <img src="<?php echo htmlentities($imagePath); ?>" alt="Car Image" class="car-img">  
         </a>  
-        <div class="car-info-bar">  
-          <span><i class="fa fa-car" aria-hidden="true"></i> <?php echo htmlentities($result->fuel_type); ?></span>  
-          <span><i class="fa fa-calendar" aria-hidden="true"></i> <?php echo htmlentities($result->model_year); ?> Model</span>  
-          <span><i class="fa fa-user" aria-hidden="true"></i> <?php echo htmlentities($result->seating_capacity); ?> seats</span>  
-        </div>  
         <div class="car-details">  
           <h6>  
             <a href="vehicle-details.php?vhid=<?php echo htmlentities($result->id); ?>">  
@@ -55,6 +51,11 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
             </a>  
           </h6>  
           <p class="car-price">₱<?php echo number_format($result->price_per_day, 2); ?> /Day</p>  
+          <div class="car-info-bar">  
+            <span><i class="fa fa-car" aria-hidden="true"></i> <?php echo htmlentities($result->fuel_type); ?></span>  
+            <span><i class="fa fa-calendar" aria-hidden="true"></i> <?php echo htmlentities($result->model_year); ?> Model</span>  
+            <span><i class="fa fa-user" aria-hidden="true"></i> <?php echo htmlentities($result->seating_capacity); ?> seats</span>  
+          </div>  
           <p><?php echo htmlentities(substr($result->vehicle_overview, 0, 70)); ?>...</p>  
         </div>  
       </div>  
@@ -110,11 +111,7 @@ body {
     border-radius: 18px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.18);
     overflow: hidden;
-    transition: 
-        transform 0.3s cubic-bezier(.4,2,.6,1),
-        box-shadow 0.3s,
-        background 0.3s,
-        color 0.3s;
+    transition: all 0.3s ease;
     cursor: pointer;
     border: none;
     margin-bottom: 20px;
@@ -124,38 +121,71 @@ body {
     color: #004153;
 }  
 
-  .car-card:hover {
-    background: #004153 !important;
-    color: #fff !important;
+.car-card:hover {
+    background: #004153;
+    color: #fff;
     transform: translateY(-10px) scale(1.03);
     box-shadow: 0 12px 36px rgba(0, 65, 83, 0.22);
-}  
-
-  .car-card:hover h6 a,
-  .car-card:hover .car-price,
-  .car-card:hover .car-description,
-  .car-card:hover .car-details,
-  .car-card:hover .car-details h6,
-  .car-card:hover .car-details h6 a,
-  .car-card:hover .car-details h6 a:visited,
-  .car-card:hover .car-details p {
-    color: #fff !important;
 }
 
-.car-card .car-details h6 a,
-.car-card .car-details h6 a:visited {
-    color: #004153;
-    text-decoration: none;
-    transition: color 0.2s;
+.car-info-bar {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-radius: 40px;
+    padding: 8px;
+    font-size: 0.9rem;
+    margin: -28px -50px;
+    width: calc(130% + -10px);
+    transition: all 0.3s ease;
 }
 
-.car-card .car-details h6 a:hover {
+.car-info-bar span {
+    display: flex;
+    white-space: nowrap;
+    padding: 0 4px;
+    transition: all 0.3s ease;
+}
+
+.car-info-bar i {
+    color: #ffe082;
+    margin-right: 6px;
+    transition: all 0.3s ease;
+}
+
+.car-card:hover .car-info-bar {
+    background: #003040;
+}
+
+.car-card:hover .car-info-bar span {
     color: #ffe082;
 }
 
+.car-card:hover .car-info-bar i {
+    color: #ffe082;
+}
+
+.car-details {
+    text-align: center;
+    padding: 18px;
+    flex: 1;
+    width: 100%;
+    position: relative;
+    background: #fff;
+    border-radius: 18px;
+    transition: all 0.3s ease;
+}
+
+.car-card:hover .car-details {
+    background: #004153;
+}
+
 .car-card:hover .car-details h6 a,
-.car-card:hover .car-details h6 a:visited {
-    color: #fff !important;
+.car-card:hover .car-details p,
+.car-card:hover .car-price {
+    color: #fff;
 }
 
 .car-img {
@@ -167,36 +197,6 @@ body {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}  
-
-  .car-info-bar {
-    background: black;
-    color: white;
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 10px 0;
-    font-size: 1.05rem;
-    margin: 16px 0 0 0;
-    border-radius: 0 0 12px 12px;
-    transition: background 0.3s, color 0.3s;
-}  
-
-.car-card:hover .car-info_bar {
-    background: #003040 !important;
-    color: #ffe082 !important;
-}
-
-.car-info-bar i {
-    color: #ffe082 !important; /* Yellow color for icons */
-    margin-right: 6px;
-    transition: color 0.3s;
-}
-
-  .car-details {
-    text-align: center;
-    padding: 18px 18px 10px 18px;
-    flex: 1;
 }  
 
   .car-details h6 {

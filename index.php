@@ -21,14 +21,131 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />  
 
   <style>
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 90px;
+    }
+    
+    .hero {
+      background: #004153;
+      min-height: 600px;
+      padding: 90px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-text {
+      max-width: 600px;
+      padding-left: 90px;
+    }
+
+    .hero-text h1 {
+      font-size: 3.5rem;
+      color: #fff;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+
+    .best-car {
+      padding: 60px 0;
+      background: #fff;
+    }
+
+    .section-title {
+      font-size: 40px;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+
+    .section-title .highlight {
+      color: #004153;
+    }
+
+    .section-description {
+      color: #666;
+      font-size: 1.1rem;
+      margin-bottom: 40px;
+      max-width: 600px;
+    }
+
+    .car-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 30px;
+    }
+
     .car-card {
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
       transition: all 0.3s ease;
-      box-shadow: 0 0 10px rgba(0, 123, 255, 0.2);
+    }
+
+    .car-image-wrapper {
+      position: relative;
+      height: 200px;
+      overflow: hidden;
+    }
+
+    .car-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .car-info-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      display: flex;
+      justify-content: space-around;
+      color: white;
+    }
+
+    .car-details {
+      padding: 20px;
+    }
+
+    .car-title {
+      margin: 0 0 10px 0;
+      font-size: 1.2rem;
+    }
+
+    .car-title a {
+      color: #004153;
+      text-decoration: none;
+    }
+
+    .car-price {
+      color: #004153;
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+
+    .car-description {
+      color: #666;
+      font-size: 0.9rem;
+      margin: 10px 0 0 0;
+    }
+
+    .car-card {
+      transition: background 0.3s, color 0.3s;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      margin-bottom: 20px;
     }
     .car-card:hover {
       background: #004153 !important;
       color: #fff !important;
-      box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
+      transform: translateY(-5px);
     }
     .car-card:hover h6 a,
     .car-card:hover .car-price,
@@ -36,7 +153,35 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
       color: #fff !important;
     }
     .car-card:hover .car-info-bar {
-      background: #003040 !important;
+      background: rgba(0, 0, 0, 0.8) !important;
+    }
+    .car-details {
+      padding: 15px;
+    }
+    .car-details h6 {
+      margin: 0 0 10px 0;
+      font-size: 1.2rem;
+    }
+    .car-details h6 a {
+      color: #004153;
+      text-decoration: none;
+    }
+    .car-price {
+      color: #004153;
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    .car-description {
+      color: #666;
+      font-size: 0.9rem;
+      margin: 5px 0 0 0;
+    }
+    .car-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 25px;
+      padding: 20px 0;
     }
     .hero {
       position: relative;
@@ -89,12 +234,30 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
         sidebar.classList.remove('show');  
       }  
     });  
+
+    function toggleLoginForm() {  
+      const form = document.getElementById('loginForm');  
+      if (form) {  
+        form.style.display = (form.style.display === 'block' ? 'none' : 'block');  
+      }  
+      const regForm = document.getElementById('registerForm');  
+      if (regForm) regForm.style.display = 'none';  
+    }  
+
+    function toggleRegisterForm() {  
+      const form = document.getElementById('registerForm');  
+      if (form) {  
+        form.style.display = (form.style.display === 'block' ? 'none' : 'block');  
+      }  
+      const loginForm = document.getElementById('loginForm');  
+      if (loginForm) loginForm.style.display = 'none';  
+    }  
   </script>  
 </head>  
 <body>  
 
 <?php include('header.php'); ?>  
-<section class="hero" id="home">  
+<section class="hero" id="home" style="background: #004153; min-height: 600px; padding: 90px; position: relative; overflow: hidden;">  
   <div class="hero-bubbles">
     <span class="bubble" style="top: 20%; left: 10%;"></span>
     <span class="bubble" style="top: 60%; left: 20%;"></span>
@@ -102,12 +265,20 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
     <span class="bubble" style="top: 75%; left: 60%;"></span>
     <span class="bubble" style="top: 10%; left: 50%;"></span>
   </div>
-  <div class="hero-text">  
-    <h1 data-translate="Ormoc Car Rental Service" style="font-size: 3rem; margin-bottom: 5px;">Ormoc Car Rental Service</h1>  
-    <p class="tagline" data-translate="Your journey starts here — fast, safe, and affordable car rentals in Ormoc." style="font-size: 1.2rem; color: #f0f0f0; margin-top: 0; margin-bottom: 15px; font-style: italic;">Your journey starts here — fast, safe, and affordable car rentals in Ormoc.</p>  
-    <div class="hero-buttons">  
-      <button class="book" data-translate="Book Now" onclick="location.href=''">Book Now</button>  
-      <button class="explore" data-translate="Explore Us" onclick="location.href='explore.php'">Explore Us</button>  
+  <div class="hero-text" style="max-width: 600px;">  
+    <h1 style="font-size: 3.5rem; color: #fff; margin-bottom: 20px;">Ormoc Car Rental Service</h1>  
+    <p class="tagline" style="font-size: 1.2rem; color: #f0f0f0; margin: 0 0 30px 0; line-height: 1.6;">
+      Your journey starts here — fast, safe, and affordable car rentals in Ormoc.
+    </p>  
+    <div class="hero-buttons" style="display: flex; gap: 20px;">  
+      <button class="book" onclick="location.href='book.php'" 
+              style="padding: 12px 30px; font-size: 1.1rem; background: #f4c542; color: #004153; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        Book Now
+      </button>  
+      <button class="explore" onclick="location.href='explore.php'"
+              style="padding: 12px 30px; font-size: 1.1rem; background: transparent; color: #fff; border: 2px solid #fff; border-radius: 5px; cursor: pointer; font-weight: bold;">
+        Explore Us
+      </button>  
     </div>  
   </div>  
 
@@ -133,10 +304,11 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
 
 <section class="best-car" id="best-car">  
   <div class="container">  
-    <h2 data-translate="Find the Best Car for You" style="color: black; font-size: 40px;">
-      Find the <span style="color: #004153;">Best Car</span> for You
+    <h2 class="section-title">
+      <span>Find the</span><br/>
+      <span class="highlight">Best Car</span> for You
     </h2>  
-    <p data-translate="Select from our wide range of well-maintained vehicles perfect for every journey.">
+    <p class="section-description">
       Select from our wide range of well-maintained vehicles perfect for every journey.
     </p>  
 
@@ -146,7 +318,8 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
           <div class="car-card">  
             <div class="car-image-wrapper">  
               <a href="vehicle-details.php?vhid=<?php echo htmlentities($result->id); ?>">  
-                <img src="<?php echo htmlentities(file_exists(__DIR__ . '/admin/uploads/' . basename($result->image1)) ? 'admin/uploads/' . basename($result->image1) : 'uploads/default-image.png'); ?>" alt="<?php echo htmlentities($result->vehicle_title); ?>" class="car-img" />  
+                <img class="car-img" src="<?php echo htmlentities(file_exists(__DIR__ . '/admin/uploads/' . basename($result->image1)) ? 'admin/uploads/' . basename($result->image1) : 'uploads/default-image.png'); ?>" 
+                     alt="<?php echo htmlentities($result->vehicle_title); ?>" />  
               </a>  
               <div class="car-info-bar">  
                 <span><i class="fa fa-car" style="color: yellow;"></i> <?php echo htmlentities($result->fuel_type); ?></span>  
@@ -155,14 +328,18 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
               </div>  
             </div>  
             <div class="car-details">  
-              <h6><a href="vehicle-details.php?vhid=<?php echo htmlentities($result->id); ?>"><?php echo htmlentities($result->brand_name); ?> , <?php echo htmlentities($result->vehicle_title); ?></a></h6>  
+              <h6 class="car-title">
+                <a href="vehicle-details.php?vhid=<?php echo htmlentities($result->id); ?>">
+                  <?php echo htmlentities($result->brand_name); ?> , <?php echo htmlentities($result->vehicle_title); ?>
+                </a>
+              </h6>  
               <p class="car-price">₱<?php echo htmlentities($result->price_per_day); ?> /Day</p>  
               <p class="car-description"><?php echo htmlentities(substr($result->vehicle_overview, 0, 70)); ?></p>  
             </div>  
           </div>  
         <?php endforeach; ?>  
       <?php else: ?>  
-        <p data-translate="No vehicles available at the moment.">No vehicles available at the moment.</p>  
+        <p>No vehicles available at the moment.</p>  
       <?php endif; ?>  
     </div>  
 
@@ -190,7 +367,7 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
       </ul>
     </div>
 
-    <video src="images/CAR.mp4" controls style="flex: 1; min-width: 700px; max-width: 300px; max-height: 500px; border-radius: 10px; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3); object-fit: cover;"></video>
+    <video src="images/CAR.mp4" controls style="flex: 1; min-width: 300px; max-width: 700px; max-height: 500px; border-radius: 10px; box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3); object-fit: cover;"></video>
   </div>
 </section>
 
@@ -204,19 +381,19 @@ $results = $query->fetchAll(PDO::FETCH_OBJ);
 
     <!-- Promo/Offers Container -->
     <div class="promo-offers-row" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; margin: 40px auto 24px auto;">
-      <div class="promo-offer" style="flex:1 1 220px; min-width:200px; max-width:320px; min-height:460px; background: url('images/promo.webp') center/cover no-repeat; position: relative; color: #fff; border-radius: 18px; box-shadow: 0 4px 24px #00415322; padding: 32px 24px; text-align: center; font-size: 2rem; font-weight: bold; letter-spacing: 1px; overflow: hidden;">
-        <div style="position:absolute;top:0;left:0;width:150%;height:150%;background:rgba(0,65,83,0.7);z-index:0;"></div>
-        <span style="position:relative;z-index:1;font-size: 2.5rem; color: #f4c542;">50% OFF</span><br>
+      <div class="promo-offer" style="flex:1 1 300px; min-width:300px; max-width:350px; height:260px; background: url('images/promo.webp') center/cover no-repeat; position: relative; color: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,65,83,0.2); padding: 32px 24px; text-align: center; display: flex; flex-direction: column; justify-content: center; overflow: hidden;">
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,65,83,0.75);z-index:0;"></div>
+        <span style="position:relative;z-index:1;font-size: 3rem; color: #f4c542; margin-bottom: 10px;">50% OFF</span>
         <span style="position:relative;z-index:1;font-size: 1.2rem; font-weight: 400; color: #fff;">on your first car rental this month!</span>
       </div>
-      <div class="promo-offer" style="flex:1 1 220px; min-width:200px; max-width:320px; min-height:260px; background: url('images/free.webp') center/cover no-repeat; position: relative; color: #fff; border-radius: 18px; box-shadow: 0 4px 24px #00415322; padding: 32px 24px; text-align: center; font-size: 2rem; font-weight: bold; letter-spacing: 1px; overflow: hidden;">
-        <div style="position:absolute;top:0;left:0;width:150%;height:150%;background:rgba(0,65,83,0.7);z-index:0;"></div>
-        <span style="position:relative;z-index:1;font-size: 2.5rem; color: #f4c542;">FREE UPGRADE</span><br>
+      <div class="promo-offer" style="flex:1 1 300px; min-width:300px; max-width:350px; height:260px; background: url('images/free.webp') center/cover no-repeat; position: relative; color: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,65,83,0.2); padding: 32px 24px; text-align: center; display: flex; flex-direction: column; justify-content: center; overflow: hidden;">
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,65,83,0.75);z-index:0;"></div>
+        <span style="position:relative;z-index:1;font-size: 3rem; color: #f4c542; margin-bottom: 10px;">FREE UPGRADE</span>
         <span style="position:relative;z-index:1;font-size: 1.2rem; font-weight: 400; color: #fff;">Get a free car upgrade on select models!</span>
       </div>
-      <div class="promo-offer" style="flex:1 1 220px; min-width:200px; max-width:320px; min-height:260px; background: url('images/Team.jpg') center/cover no-repeat; position: relative; color: #fff; border-radius: 18px; box-shadow: 0 4px 24px #00415322; padding: 32px 24px; text-align: center; font-size: 2rem; font-weight: bold; letter-spacing: 1px; overflow: hidden;">
-        <div style="position:absolute;top:0;left:0;width:150%;height:150%;background:rgba(0,65,83,0.7);z-index:0;"></div>
-        <span style="position:relative;z-index:1;font-size: 2.5rem; color: #f4c542;">UNLIMITED MILEAGE</span><br>
+      <div class="promo-offer" style="flex:1 1 300px; min-width:300px; max-width:350px; height:260px; background: url('images/Team.jpg') center/cover no-repeat; position: relative; color: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,65,83,0.2); padding: 32px 24px; text-align: center; display: flex; flex-direction: column; justify-content: center; overflow: hidden;">
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,65,83,0.75);z-index:0;"></div>
+        <span style="position:relative;z-index:1;font-size: 3rem; color: #f4c542; margin-bottom: 10px;">UNLIMITED MILEAGE</span>
         <span style="position:relative;z-index:1;font-size: 1.2rem; font-weight: 400; color: #fff;">Drive as much as you want, no extra fees!</span>
       </div>
     </div>

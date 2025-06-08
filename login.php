@@ -1,225 +1,37 @@
 <?php
-// Enable error reporting for debugging (remove in production)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Initialize session
-if (session_status() == PHP_SESSION_NONE) {
     session_start();
-}
+require_once('db.php');
+require_once('phpmailer.php');
+require_once('api/auth_api.php');
+require_once('functions.php');
 
-// Include API configuration
-require_once 'api/auth_api.php';
-
-// Initialize the API
-$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
-
-// Function to request OTP
-function requestOTP($email) {
-    global $auth_api;
-    return $auth_api->requestOTP($email, 'email_verification');
-}
-
-// Function to verify OTP
-function verifyOTP($email, $otp) {
-    global $auth_api;
-    return $auth_api->verifyEmail($email, $otp);
-}
-
-// Function to register user
-function registerUser($email, $password, $fullname, $contact, $dob, $address) {
-    global $auth_api;
-    
-    // First register with API
-    $response = $auth_api->register($email, $password, $fullname);
-    
-    if ($response['status'] === 200 && $response['data']['success']) {
-        // Store user in local database
-        $conn = new PDO("mysql:host=localhost;dbname=ocrms", "root", "");
-        $stmt = $conn->prepare("
-            INSERT INTO tblusers 
-            (FullName, EmailId, Password, ContactNumber, DOB, Address, is_verified) 
-            VALUES (?, ?, ?, ?, ?, ?, 0)
-        ");
-        
-        if ($stmt->execute([
-            $fullname,
-            $email,
-            password_hash($password, PASSWORD_DEFAULT),
-            $contact,
-            $dob,
-            $address
-        ])) {
-            return true;
-        }
-    }
-    return false;
-}
-
-// Database connection (for fallback)
-$host = 'localhost';
-$db = 'ocrms';
-$user = 'root';
-$pass = '';
+// API configuration
+$api_key = 'ak_5a451330459ee6c400ce7efd37e39076';
+$api_base_url = 'https://c705-122-54-183-231.ngrok-free.app';
 
 // Initialize the API
-$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
-
-// Handle OTP verification
-if (isset($_POST['verify_otp']) && isset($_POST['email']) && isset($_POST['otp'])) {
-    $email = $_POST['email'];
-    $otp = $_POST['otp'];
-    
-    // Call API to verify OTP
-    $response = $auth_api->verifyEmail($email, $otp);
-    
-    if ($response['status'] === 200 && $response['data']['success']) {
-        $_SESSION['success'] = 'Email verified successfully! Please login.';
-        header('Location: login.php');
-        exit;
-    } else {
-        $_SESSION['error'] = 'Invalid OTP. Please try again.';
-    }
-}
-
-// Handle OTP request (send OTP email after API call)
-require_once __DIR__ . '/phpmailer.php';
-if (isset($_POST['request_otp']) && isset($_POST['email'])) {
-    $email = $_POST['email'];
-    $response = $auth_api->requestOTP($email, 'email_verification');
-    if ($response['status'] === 200 && $response['data']['success']) {
-        $otp = isset($response['data']['otp']) ? $response['data']['otp'] : null;
-        if ($otp) {
-            sendOTPEmail($email, $otp, 'email_verification');
-        }
-        $_SESSION['success'] = 'Verification code sent to your email. Please check your inbox.';
-    } elseif ($response['status'] === 429) {
-        // Rate limit exceeded
-        $wait_time = isset($response['data']['wait_time']) ? $response['data']['wait_time'] : 0;
-        $message = isset($response['data']['message']) ? $response['data']['message'] : 'Rate limit exceeded. Please try again later.';
-        $_SESSION['error'] = $message;
-        echo "<script>alert('{$message}');</script>";
-        exit;
-    } else {
-        $_SESSION['error'] = 'Failed to send verification code. Please try again.';
-    }
-}
-
-// Handle registration (send OTP email after registration and OTP generation)
-if (isset($_POST['register'])) {
-    $fullname = htmlspecialchars($_POST['fullname']);
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $contact = htmlspecialchars($_POST['contact']);
-    $dob = isset($_POST['dob']) ? $_POST['dob'] : null;
-    $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
-    $password = $_POST['password'];
-    $confirm_password = isset($_POST['confirm_password']) ? $_POST['confirm_password'] : '';
-
-    // Password validation
-    if (!preg_match('/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/', $password)) {
-        echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
-        exit;
-    } elseif ($password !== $confirm_password) {
-        echo "<script>alert('Passwords do not match.');</script>";
-        exit;
-    }
-
-    // Check if email already exists
-    $conn = new PDO("mysql:host=$host;dbname=$db", $user, $pass);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
-    $stmt->bindParam(':email', $email);
-    $stmt->execute();
-
-    if ($stmt->rowCount() > 0) {
-        echo "<script>alert('Email already registered!');</script>";
-        exit;
-    }
-
-    // 1. Request OTP from API (API generates OTP)
-    $otp_response = $auth_api->requestOTP($email, 'email_verification');
-    
-    // Handle different API response scenarios
-    if ($otp_response['status'] === 429) {
-        $message = isset($otp_response['data']['message']) ? $otp_response['data']['message'] : 'Rate limit exceeded. Please try again later.';
-        echo "<script>alert('{$message}');</script>";
-        exit;
-    } elseif ($otp_response['status'] !== 200) {
-        $error = isset($otp_response['data']['error']) ? $otp_response['data']['error'] : 'Unknown error';
-        $message = isset($otp_response['data']['message']) ? $otp_response['data']['message'] : 'Failed to generate OTP. Please try again later.';
-        error_log("OTP Generation Error: Status " . $otp_response['status'] . ", Error: " . $error);
-        echo "<script>
-            alert('{$message}\n\nPlease check:\n1. Your internet connection\n2. That you have entered a valid email address\n3. Try refreshing the page and trying again');
-            window.location.href = 'login.php';
-        </script>";
-        exit;
-    }
-    
-    // Check if OTP was actually generated
-    if (empty($otp_response['data']['otp'])) {
-        error_log("No OTP received in response: " . json_encode($otp_response));
-        echo "<script>alert('Failed to generate OTP. Please try again later.');</script>";
-        exit;
-    }
-    
-    $otp = $otp_response['data']['otp'];
-    
-    // Log successful OTP generation
-    error_log("Successfully generated OTP for email: " . $email);
-
-    // 2. Store OTP and email in session for verification step
-    $_SESSION['pending_otp'] = $otp;
-    $_SESSION['pending_email'] = $email;
-
-    // 3. Register user in DB (unverified)
-    $stmt = $conn->prepare("
-        INSERT INTO tblusers 
-        (FullName, EmailId, Password, ContactNumber, DOB, Address, is_verified) 
-        VALUES (?, ?, ?, ?, ?, ?, 0)
-    ");
-    $stmt->execute([
-        $fullname,
-        $email,
-        password_hash($password, PASSWORD_DEFAULT),
-        $contact,
-        $dob,
-        $address
-    ]);
-
-    // 4. Send OTP via PHPMailer (your own Gmail)
-    require_once __DIR__ . '/phpmailer.php';
-    sendOTPEmail($email, $otp, 'email_verification');
-
-    // 5. Show success message and redirect to OTP verification page
-    echo '<script>alert("Registration successful! Please check your email for the verification code.");window.location.href="otp_verify.php";</script>';
-    exit;
-}
-
-// Database connection (for fallback)
-$host = 'localhost';
-$db = 'ocrms';
-// Initialize the API
-$auth_api = new UserAuthAPI('ak_46436e6ca705fa9e3ab6793a52c4cf0d');
+$auth_api = new UserAuthAPI($api_key);
 
 // reCAPTCHA configuration
 $recaptcha_site_key = '6LeY3TwrAAAAAKyLLLsFmTXtDKvvLTeyUcNnUX5W';
 $recaptcha_secret_key = '6LeY3TwrAAAAACzCiOrM_NrfuSlBfGYR5ml_orT5';
 
+// Database connection
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$db", $user, $pass);
+    $conn = new PDO("mysql:host=localhost;dbname=ocrms", "root", "");
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Add failed_attempts and lock_until columns if they don't exist
     $conn->exec("ALTER TABLE tblusers ADD COLUMN IF NOT EXISTS failed_attempts INT DEFAULT 0");
     $conn->exec("ALTER TABLE tblusers ADD COLUMN IF NOT EXISTS lock_until DATETIME DEFAULT NULL");
+    $conn->exec("ALTER TABLE tblusers ADD COLUMN IF NOT EXISTS last_login DATETIME DEFAULT NULL");
 } catch (PDOException $e) {
     die("Connection failed: " . $e->getMessage());
 }
 
 // Helper functions
 function logEvent($conn, $userId, $event, $ipAddress, $userAgent) {
-    $stmt = $conn->prepare("INSERT INTO user_logs (user_id, event, ip_address, user_agent) VALUES (:user_id, :event, :ip_address, :user_agent)");
+    $stmt = $conn->prepare("INSERT INTO user_logs (user_id, event, ip_address, user_agent, created_at) VALUES (:user_id, :event, :ip_address, :user_agent, NOW())");
     $stmt->bindParam(':user_id', $userId);
     $stmt->bindParam(':event', $event);
     $stmt->bindParam(':ip_address', $ipAddress);
@@ -233,8 +45,14 @@ function isAccountLocked($conn, $email) {
     $stmt->execute();
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user && $user['failed_attempts'] >= 5 && strtotime($user['lock_until']) > time()) {
+    if ($user && $user['lock_until'] !== null) {
+        if (strtotime($user['lock_until']) > time()) {
         return true;
+        } else {
+            // Lock period has expired, reset the counter
+            resetFailedAttempts($conn, $email);
+            return false;
+        }
     }
     return false;
 }
@@ -248,6 +66,10 @@ function lockAccount($conn, $email) {
 }
 
 function verifyRecaptcha($recaptcha_secret_key, $recaptcha_response) {
+    if (empty($recaptcha_response)) {
+        return false;
+    }
+
     $url = 'https://www.google.com/recaptcha/api/siteverify';
     $data = [
         'secret' => $recaptcha_secret_key,
@@ -265,6 +87,11 @@ function verifyRecaptcha($recaptcha_secret_key, $recaptcha_response) {
 
     $context = stream_context_create($options);
     $result = file_get_contents($url, false, $context);
+    
+    if ($result === false) {
+        return false;
+    }
+    
     return json_decode($result)->success;
 }
 
@@ -280,379 +107,231 @@ function incrementFailedAttempts($conn, $email) {
     $stmt->execute();
     
     // Check if we need to lock the account
-    try {
-        $stmt = $conn->prepare("SELECT failed_attempts FROM tblusers WHERE EmailId = :email");
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($result && isset($result['failed_attempts']) && $result['failed_attempts'] >= 3) {
-            lockAccount($conn, $email);
-        }
-    } catch (PDOException $e) {
-        // Log the error but don't let it affect the login process
-        error_log("Database error: " . $e->getMessage());
+    $stmt = $conn->prepare("SELECT failed_attempts FROM tblusers WHERE EmailId = :email");
+    $stmt->bindParam(':email', $email);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($result['failed_attempts'] >= 3) {
+        lockAccount($conn, $email);
     }
 }
 
+function updateLastLogin($conn, $userId) {
+    $stmt = $conn->prepare("UPDATE tblusers SET last_login = NOW() WHERE UserID = :user_id");
+    $stmt->bindParam(':user_id', $userId);
+    $stmt->execute();
+}
+
 // SESSION TIMEOUT SETTINGS
-$timeout_duration = 900; // 15 minutes
-if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY']) > $timeout_duration) {
+$session_lifetime = 1800; // 30 minutes in seconds
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $session_lifetime)) {
     session_unset();
     session_destroy();
-    echo "<script>alert('Session expired. Please login again.'); window.location.href='login.php';</script>";
+    header('Location: login.php?timeout=1');
     exit;
 }
-$_SESSION['LAST_ACTIVITY'] = time();
+$_SESSION['last_activity'] = time();
 
-// Determine if we need to show reCAPTCHA
+// Show CAPTCHA after 3 failed attempts
 $show_captcha = false;
-$email_for_check = '';
-if (isset($_POST['email'])) {
-    $email_for_check = $_POST['email'];
-} elseif (isset($_SESSION['last_login_email'])) {
-    $email_for_check = $_SESSION['last_login_email'];
-}
-
-if (!empty($email_for_check)) {
+if (isset($_SESSION['last_login_email'])) {
     $stmt = $conn->prepare("SELECT failed_attempts FROM tblusers WHERE EmailId = :email");
-    $stmt->bindParam(':email', $email_for_check);
+    $stmt->bindParam(':email', $_SESSION['last_login_email']);
     $stmt->execute();
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    // Show CAPTCHA only if failed_attempts is 3 or more
     if ($user && $user['failed_attempts'] >= 3) {
         $show_captcha = true;
     }
 }
 
-// LOGIN
+// Handle login form submission
 if (isset($_POST['login'])) {
-    $email = $_POST['email'];
-    $_SESSION['last_login_email'] = $email; // Save for next reload
+    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'];
-    $recaptcha_response = isset($_POST['g-recaptcha-response']) ? $_POST['g-recaptcha-response'] : '';
-
-    // Only require reCAPTCHA if $show_captcha is true
-    if ($show_captcha && !verifyRecaptcha($recaptcha_secret_key, $recaptcha_response)) {
-        echo "<script>alert('Please complete the reCAPTCHA verification');</script>";
-        exit;
-    }
+    $recaptcha_response = $_POST['g-recaptcha-response'] ?? '';
+    
+    $_SESSION['last_login_email'] = $email;
 
     // Check if account is locked
     if (isAccountLocked($conn, $email)) {
-        echo "<script>alert('Account locked. Please try again after 5 minutes.');</script>";
-        exit;
+        $_SESSION['alert'] = [
+            'type' => 'error',
+            'message' => 'Account is locked. Please try again after 5 minutes.'
+        ];
     }
-
-    // Fetch user from the database
-    $stmt = $conn->prepare("SELECT * FROM tblusers WHERE EmailId = :email");
-    $stmt->bindParam(':email', $email);
-    $stmt->execute();
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($user && password_verify($password, $user['Password'])) {
-        // Reset failed attempts on successful login
-        resetFailedAttempts($conn, $email);
-
-        // Set session variables
-        $_SESSION['login'] = $user['EmailId'];
-        $_SESSION['user_id'] = $user['UserID'];
-        $_SESSION['fname'] = $user['FullName'];
-        $_SESSION['role'] = isset($user['role']) ? $user['role'] : 'user';
-        echo "<script>alert('Login successful!'); window.location.href='index.php';</script>";
-        exit;
+    // Verify reCAPTCHA if required
+    else if ($show_captcha && !verifyRecaptcha($recaptcha_secret_key, $recaptcha_response)) {
+        $_SESSION['alert'] = [
+            'type' => 'error',
+            'message' => 'Please complete the reCAPTCHA verification.'
+        ];
     } else {
-        // Increment failed attempts
-        incrementFailedAttempts($conn, $email);
-        echo "<script>alert('Invalid email or password');</script>";
-    }
-}
-
-// REMOVE this duplicate registration block below (if present):
-/*
-if (isset($_POST['register'])) {
-<<<<<<< HEAD
-    // ...duplicate registration logic...
-=======
-    $fullname = htmlspecialchars($_POST['fullname']);
-    $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
-    $contact = htmlspecialchars($_POST['contact']);
-    $dob = isset($_POST['dob']) ? $_POST['dob'] : null;
-    $address = isset($_POST['address']) ? htmlspecialchars($_POST['address']) : null;
-    $password = $_POST['password'];
-    $confirmpassword = $_POST['confirmpassword'];
-    $password = trim($password);
-
-    if ($password !== $confirmpassword) {
-        echo "<script>alert('Passwords do not match!');</script>";
-    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/', $password)) {
-        echo "<script>alert('Password must be at least 8 characters long and include uppercase, lowercase, numbers, and symbols.');</script>";
-    } else {
-        $stmt = $conn->prepare("SELECT EmailId FROM tblusers WHERE EmailId = :email");
-        $stmt->bindParam(':email', $email);
-        $stmt->execute();
-
-        if ($stmt->rowCount() > 0) {
-            echo "<script>alert('Email already registered!');</script>";
-        } else {
-            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-            $stmt = $conn->prepare("INSERT INTO tblusers (FullName, EmailId, ContactNumber, dob, address, Password) VALUES (:fullname, :email, :contact, :dob, :address, :password)");
-            $stmt->bindParam(':fullname', $fullname);
+        try {
+            // First verify with local database
+            $stmt = $conn->prepare("SELECT * FROM tblusers WHERE EmailId = :email");
             $stmt->bindParam(':email', $email);
-            $stmt->bindParam(':contact', $contact);
-            $stmt->bindParam(':dob', $dob);
-            $stmt->bindParam(':address', $address);
-            $stmt->bindParam(':password', $hashedPassword);
+            $stmt->execute();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($stmt->execute()) {
-                echo "<script>alert('Registration successful. You can now login!');</script>";
-                echo "<script>openModal();</script>";
+            if ($user && password_verify($password, $user['Password'])) {
+                // If local verification succeeds, verify with API
+                error_log("Local verification successful for email: " . $email);
+                error_log("Attempting API verification...");
+
+                // Prepare API call
+                $api_endpoint = $api_base_url . '/api/login.php';
+                $payload = json_encode([
+                    'email' => $email,
+                    'password' => $password
+                ]);
+
+                $ch = curl_init($api_endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'X-API-Key: ' . $api_key
+                ]);
+
+                $response = curl_exec($ch);
+                $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                error_log("API Raw Response: " . $response);
+                error_log("HTTP Code: " . $http_code);
+
+                $api_response = json_decode($response, true);
+
+                if ($http_code === 200 && isset($api_response['success']) && $api_response['success'] === true) {
+                    error_log("API verification successful");
+                    // Reset failed attempts
+                    resetFailedAttempts($conn, $email);
+                    
+                    // Update last login time
+                    updateLastLogin($conn, $user['UserID']);
+
+                    // Set session variables
+                    $_SESSION['login'] = $email;
+                    $_SESSION['user_id'] = $user['UserID'];
+                    $_SESSION['fname'] = $user['FullName'];
+                    $_SESSION['role'] = $user['role'] ?? 'user';
+                    
+                    // Store API auth token
+                    if (isset($api_response['data']['auth_token'])) {
+                        $_SESSION['auth_token'] = $api_response['data']['auth_token'];
+                    }
+                    
+                    // Log successful login
+                    logEvent($conn, $user['UserID'], 'login_success', $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+                    
+                    // Log to users_activity_log with proper connection
+                    logUserActivity($conn, $user['UserID'], 'Logged in successfully');
+                    
+                    $_SESSION['alert'] = [
+                        'type' => 'success',
+                        'message' => 'Login successful!'
+                    ];
+                    
+                    header('Location: index.php');
+                    exit;
+                } else {
+                    // API verification failed
+                    error_log("API verification failed");
+                    error_log("Response: " . print_r($api_response, true));
+                    
+                    incrementFailedAttempts($conn, $email);
+                    logEvent($conn, $user['UserID'], 'login_failed_api', $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+                    
+                    $_SESSION['alert'] = [
+                        'type' => 'error',
+                        'message' => $api_response['message'] ?? 'Authentication failed. Please try again.'
+                    ];
+                }
             } else {
-                echo "<script>alert('Registration failed. Try again.');</script>";
+                // Local verification failed
+                if ($user) {
+                    incrementFailedAttempts($conn, $email);
+                    logEvent($conn, $user['UserID'], 'login_failed_password', $_SERVER['REMOTE_ADDR'], $_SERVER['HTTP_USER_AGENT']);
+                }
+                $_SESSION['alert'] = [
+                    'type' => 'error',
+                    'message' => 'Invalid email or password.'
+                ];
             }
+        } catch (Exception $e) {
+            error_log("Login error: " . $e->getMessage());
+            $_SESSION['alert'] = [
+                'type' => 'error',
+                'message' => 'An error occurred. Please try again later.'
+            ];
         }
     }
->>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
 }
-*/
+
+// Handle session timeout message
+if (isset($_GET['timeout']) && $_GET['timeout'] == 1) {
+    $_SESSION['alert'] = [
+        'type' => 'error',
+        'message' => 'Your session has expired. Please login again.'
+    ];
+}
+
+// Handle logout message
+if (isset($_GET['logged_out']) && $_GET['logged_out'] == 1) {
+    $_SESSION['alert'] = [
+        'type' => 'success',
+        'message' => 'You have been successfully logged out.'
+    ];
+}
 ?>
 
-<!-- Login/Register Modal Form -->
-<div class="modal-content login-modal" style="background:#fff;max-width:400px;margin:40px auto;padding:32px 24px;border-radius:12px;box-shadow:0 4px 24px #0002;position:relative;">
-  <span onclick="document.getElementById('login-form-container').style.display='none'" style="position:absolute;top:12px;right:18px;font-size:24px;cursor:pointer;">&times;</span>
-  
-  <!-- Login Form -->
-  <div id="login-form-section">
-    <h2 style="margin-bottom:18px;text-align:center;color:#004153;">Login</h2>
-    <form method="POST" action="login.php">
-      <input type="email" name="email" placeholder="Email" required class="login-input">
-      <input type="password" name="password" placeholder="Password" required class="login-input">
-      <button type="submit" name="login" class="login-btn">Login</button>
-    </form>
-    <div style="text-align:center;margin-top:12px;">
-      <span>Don't have an account yet? <a href="#" onclick="showRegister();return false;">Register</a></span>
-    </div>
-  </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login/Register</title>
+    <!-- Add reCAPTCHA script -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <!-- Add external CSS and JavaScript -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body <?php if (!isset($_SESSION['login'])) echo 'onload="openModal()"'; ?>>
 
-  <!-- Register Form -->
-  <div id="register-form-section" style="display:none;">
-    <h2 style="margin-bottom:18px;text-align:center;color:#1976d2;">Register</h2>
-    <form method="POST" action="login.php">
-      <input type="text" name="fullname" placeholder="Full Name" required class="login-input">
-      <input type="email" name="email" placeholder="Email" required class="login-input">
-      <input type="text" name="contact" placeholder="Contact Number" required class="login-input">
-      <input type="date" name="dob" placeholder="Date of Birth" class="login-input">
-      <input type="text" name="address" placeholder="Address" class="login-input">
-      <input type="password" name="password" placeholder="Password" required class="login-input">
-      <input type="password" name="confirm_password" placeholder="Confirm Password" required class="login-input">
-      <button type="submit" name="register" class="register-btn">Register</button>
-    </form>
-    <div style="text-align:center;margin-top:12px;">
-      <span>Already have an account? <a href="#" onclick="showLogin();return false;">Login</a></span>
+<!-- LOGIN MODAL -->
+<div class="modern-login-modal" id="loginform">
+  <div class="modern-login-content">
+    <button class="close" onclick="closeModal()">&times;</button>
+    <div class="modern-login-left">
+      <img src="images/blue.png" alt="Welcome" class="login-illustration">
+      <h2>Hello!<br><span style="font-weight:400;">Welcome</span></h2>
+      <p style="margin-top: 20px; color: #fff; font-size: 1rem;">Login your account to get full user experience</p>
+    </div>
+    <div class="modern-login-right">
+      <?php if (isset($_SESSION['alert'])): ?>
+        <div class="alert alert-<?php echo $_SESSION['alert']['type']; ?>">
+          <?php echo $_SESSION['alert']['message']; ?>
+        </div>
+        <?php unset($_SESSION['alert']); ?>
+      <?php endif; ?>
+      <form method="post">
+        <h3 style="margin-bottom: 18px; color: #4B3F72;">Login your account</h3>
+        <p style="margin-bottom: 10px; color: #7a7a7a;">Enter your credentials to access your account</p>
+        <input type="email" name="email" placeholder="Username" required value="<?php echo isset($_SESSION['last_login_email']) ? htmlspecialchars($_SESSION['last_login_email']) : ''; ?>">
+        <input type="password" name="password" placeholder="Password" required>
+        <div class="g-recaptcha" data-sitekey="<?php echo $recaptcha_site_key; ?>" style="margin: 10px 0;"></div>
+        <a href="reset_password.php" style="font-size: 0.95rem; color: #7a7a7a; float:right; margin-bottom: 10px;">Forgot password?</a>
+        <input type="submit" name="login" value="Login" class="modern-login-btn">
+        <div style="margin-top: 18px; text-align: center;">
+           <a href="register.php" style="color: #4B3F72;">Create Account</a>
+        </div>
+      </form>
     </div>
   </div>
 </div>
-<script>
-function showRegister() {
-  document.getElementById('login-form-section').style.display = 'none';
-  document.getElementById('register-form-section').style.display = 'block';
-}
-function showLogin() {
-  document.getElementById('register-form-section').style.display = 'none';
-  document.getElementById('login-form-section').style.display = 'block';
-}
-<<<<<<< HEAD
-=======
-function openRegisterForm() {
-    document.getElementById('registerform').classList.add('show');
-}
-function closeRegisterModal() {
-    document.getElementById('registerform').classList.remove('show');
-}
 
-// Password strength meter and validation
-const password = document.getElementById('password');
-const strengthBar = document.getElementById('password-strength-bar');
-const requirements = document.querySelector('.password-requirements');
-const confirmPass = document.getElementById('confirm_password');
+<!-- Add external JavaScript -->
+<script src="script.js"></script>
 
-// Password requirements
-const requirementsList = [
-    { test: (p) => p.length >= 8, text: 'At least 8 characters' },
-    { test: (p) => p.length >= 12, text: 'At least 12 characters' },
-    { test: (p) => /[A-Z]/.test(p), text: 'Contains uppercase letter' },
-    { test: (p) => /[a-z]/.test(p), text: 'Contains lowercase letter' },
-    { test: (p) => /[0-9]/.test(p), text: 'Contains number' },
-    { test: (p) => /[^A-Za-z0-9]/.test(p), text: 'Contains symbol' }
-];
-
-// Update requirements display
-function updateRequirementsDisplay() {
-    const passVal = password.value;
-    let isValid = true; // Track whether all requirements are met
-
-    const requirements = document.querySelectorAll('.requirements-list .requirement');
-    
-    requirements.forEach(req => {
-        const text = req.textContent;
-        
-        if (text.includes('8 characters')) {
-            const ok = passVal.length >= 8;
-            req.style.color = ok ? '#33cc33' : '#f00';
-            if (!ok) isValid = false;
-        } else if (text.includes('uppercase')) {
-            const ok = /[A-Z]/.test(passVal);
-            req.style.color = ok ? '#33cc33' : '#f00';
-            if (!ok) isValid = false;
-        } else if (text.includes('lowercase')) {
-            const ok = /[a-z]/.test(passVal);
-            req.style.color = ok ? '#33cc33' : '#f00';
-            if (!ok) isValid = false;
-        } else if (text.includes('number')) {
-            const ok = /[0-9]/.test(passVal);
-            req.style.color = ok ? '#33cc33' : '#f00';
-            if (!ok) isValid = false;
-        } else if (text.includes('special character')) {
-            const ok = /[^A-Za-z0-9]/.test(passVal);
-            req.style.color = ok ? '#33cc33' : '#f00';
-            if (!ok) isValid = false;
-        }
-    });
-
-    return isValid; // ✅ Return true only if all requirements are satisfied
-}
-
-
-// Update strength meter
-function updateStrengthMeter() {
-    const passVal = password.value;
-    let strength = 0;
-    
-    // Calculate strength based on requirements
-    requirementsList.forEach(req => {
-        if (req.test(passVal)) strength += 25;
-    });
-    
-    // Update strength bar
-    strengthBar.style.width = `${strength}%`;
-    
-    // Update bar color based on strength
-    if (strength === 0) {
-        strengthBar.style.background = 'transparent';
-    } else if (strength < 30) {
-        strengthBar.style.background = '#f00';
-    } else if (strength < 60) {
-        strengthBar.style.background = '#ff9900';
-    } else if (strength < 90) {
-        strengthBar.style.background = '#33cc33';
-    } else {
-        strengthBar.style.background = '#00cc00';
-    }
-    
-    // Add validation message
-    if (strength === 100) {
-        requirements.innerHTML += '<div style="color: #33cc33; margin-top: 8px;">Password is strong and meets all requirements!</div>';
-    }
-}
-
-// Add event listeners
-password.addEventListener('input', function() {
-    updateStrengthMeter();
-    updateRequirementsDisplay();
-});
-
-confirmPass.addEventListener('input', function() {
-    const passVal = password.value;
-    const confirmVal = this.value;
-    
-    if (passVal !== confirmVal) {
-        this.style.borderColor = '#f00';
-        this.nextElementSibling?.remove();
-        const error = document.createElement('span');
-        error.textContent = 'Passwords do not match';
-        error.style.color = '#f00';
-        error.style.fontSize = '0.85rem';
-        error.style.marginTop = '4px';
-        this.parentNode.insertBefore(error, this.nextSibling);
-    } else {
-        this.style.borderColor = '';
-        this.nextElementSibling?.remove();
-    }
-});
-
-// Form submission validation
-const registerForm = document.querySelector('#registerform form');
-if (registerForm) {
-    registerForm.addEventListener('submit', function(e) {
-        const password = document.getElementById('password');
-        const confirmPass = document.getElementById('confirm_password');
-        const passVal = password.value;
-        const confirmVal = confirmPass.value;
-
-        if (!updateRequirementsDisplay()) {
-            e.preventDefault();
-            alert('Password does not meet all requirements');
-            return;
-        }
-
-        if (passVal !== confirmVal) {
-            e.preventDefault();
-            alert('Passwords do not match');
-            return;
-        }
-    });
-}
-
-
-// Logout confirmation
-function confirmLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        window.location.href = 'logout.php?logout=1';
-    }
-}
-<?php if (!isset($_SESSION['login'])): ?>
-    openModal();
-<?php endif; ?>
-// Show logout success alert if redirected after logout
-<?php if (isset($_GET['logged_out']) && $_GET['logged_out'] == 1): ?>
-    alert('Logout successfully');
-<?php endif; ?>
->>>>>>> 57a14d4ef1856b1b796bd0ff4e37f94dbc2c91b4
-</script>
-<style>
-.login-modal { font-family: Arial, sans-serif; }
-.login-input {
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 1rem;
-}
-.login-btn {
-  width: 100%;
-  padding: 10px;
-  background: #004153;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  font-size: 1rem;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.login-btn:hover { background: #1976d2; }
-.register-btn {
-  width: 100%;
-  padding: 10px;
-  background: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.register-btn:hover { background: #004153; }
-</style>
-<!-- End Modal Form -->
+</body>
+</html>

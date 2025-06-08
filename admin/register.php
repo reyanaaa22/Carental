@@ -110,52 +110,143 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       justify-content: center;
       align-items: center;
       height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #004153 0%, #006080 100%);
     }
+
+    /* Animated bubbles */
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      animation: float 8s infinite ease-in-out;
+      z-index: 0;
+    }
+
+    .bubble:nth-child(1) {
+      width: 80px;
+      height: 80px;
+      top: 20%;
+      left: 10%;
+      background: rgba(0, 255, 204, 0.18);
+      animation-delay: 0s;
+    }
+
+    .bubble:nth-child(2) {
+      width: 120px;
+      height: 120px;
+      top: 60%;
+      left: 20%;
+      background: rgba(0, 153, 255, 0.15);
+      animation-delay: 2s;
+    }
+
+    .bubble:nth-child(3) {
+      width: 60px;
+      height: 60px;
+      top: 30%;
+      left: 80%;
+      background: rgba(255, 255, 255, 0.12);
+      animation-delay: 4s;
+    }
+
+    .bubble:nth-child(4) {
+      width: 100px;
+      height: 100px;
+      top: 75%;
+      left: 60%;
+      background: rgba(0, 255, 153, 0.13);
+      animation-delay: 1s;
+    }
+
+    .bubble:nth-child(5) {
+      width: 90px;
+      height: 90px;
+      top: 10%;
+      left: 50%;
+      background: rgba(0, 255, 204, 0.10);
+      animation-delay: 3s;
+    }
+
+    .bubble:nth-child(6) {
+      width: 90px;
+      height: 90px;
+      top: 50%;
+      left: 90%;
+      background: rgba(0, 255, 204, 0.10);
+      animation-delay: 1s;
+    }
+
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0) scale(1);
+      }
+      50% {
+        transform: translateY(-40px) scale(1.1);
+      }
+    }
+
     .container {
-      background-color: #fff;
-      width: 800px;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      width: 450px;
+      padding: 13px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      position: relative;
+      z-index: 1;
     }
     .title {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: bold;
-      margin-bottom: 20px;
-      color: #333;
+      margin-bottom: 30px;
+      color: #004153;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     .user-details {
       margin-bottom: 20px;
     }
     .name-row {
       display: flex;
-      gap: 20px;
-      justify-content: space-between;
+      gap: 40px;
+      justify-content: relative;
       margin-bottom: 15px;
     }
-    .name-row .input-box {
+    .name-row .input-box .input-box1 {
       flex: 1;
     }
-    .input-box {
+    .input-box, .input-box1 {
       margin-bottom: 15px;
     }
-    .input-box span {
+    .input-box span, .input-box1 span {
       font-size: 14px;
       color: #555;
       display: block;
       margin-bottom: 5px;
       text-align: left;
     }
-    .input-box input {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
+    .input-box1 input {
+      width: 80%;
+      padding: 8px;
+      font-size: 14px;
       border: 1px solid #ccc;
       border-radius: 5px;
       outline: none;
     }
-    .input-box input:focus {
+    .input-box input {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      outline: none;
+    }
+    .input-box input:focus, .input-box1 input:focus {
       border-color: #0066cc;
     }
     .gender-details {
@@ -179,21 +270,27 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       color: #555;
     }
     .button {
-      margin-top: 20px;
+      margin-top: 25px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
     }
     .button input {
-      width: 100%;
+      width: 70%;
       padding: 12px;
-      background-color: #0066cc;
+      background: linear-gradient(90deg, #004153 0%, #006080 100%);
       color: #fff;
       font-size: 16px;
+      font-weight: 600;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
-      transition: background-color 0.3s ease;
+      transition: all 0.3s ease;
     }
     .button input:hover {
-      background-color: #005bb5;
+      background: linear-gradient(90deg, #006080 0%, #004153 100%);
+      transform: translateY(-2px);
     }
     p {
       text-align: center;
@@ -201,9 +298,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       color: red;
       margin-top: 10px;
     }
+    .auth-links {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+    .auth-links a {
+        color: #004153;
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+
+    .auth-links a:hover {
+        color: #006080;
+    }
   </style>
 </head>
 <body>
+  <!-- Add bubbles -->
+  <div class="bubbles">
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+    <div class="bubble"></div>
+  </div>
+
   <div class="container">
     <div class="title">Registration</div>
     <form method="POST" action="" enctype="multipart/form-data">
@@ -218,24 +340,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <input type="text" name="last_name" placeholder="Enter your Last Name" required>
           </div>
         </div>
-        <div class="input-box">
+        <div class="input-box1">
           <span class="details">Email</span>
           <input type="email" name="email" placeholder="Enter your email" required>
         </div>
-        <div class="input-box">
+        <div class="input-box1">
           <span class="details">Phone Number</span>
           <input type="text" name="phone_number" placeholder="Enter your phone number" required>
         </div>
-        <div class="input-box">
+        <div class="input-box1">
           <span class="details">Password</span>
           <input type="password" name="password" placeholder="Enter your password" required>
         </div>
-        <div class="input-box">
+        <div class="input-box1">
           <span class="details">Confirm Password</span>
           <input type="password" name="confirm_password" placeholder="Confirm your password" required>
         </div>
 
-        <div class="input-box">
+        <div class="input-box1">
           <span class="details">Profile Picture</span>
           <input type="file" name="profile_image" accept="image/*" required>
         </div>
@@ -251,6 +373,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
       <div class="button">
         <input type="submit" value="Register">
+      </div>
+
+      <div class="auth-links">
+          <a href="login.php">Already have an account? Login</a>
       </div>
     </form>
   </div>

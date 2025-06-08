@@ -4,6 +4,8 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();  
 }  
 include_once('db.php');
+include_once('includes/language_functions.php');
+
 $userId = $_SESSION['UserID'] ?? null;
 $notifCount = 0;
 if ($userId && isset($dbh)) {
@@ -11,15 +13,16 @@ if ($userId && isset($dbh)) {
     $stmt->execute([$userId]);
     $notifCount = $stmt->fetchColumn();
 }
+
+// Get the current page filename
+$current_page = basename($_SERVER['PHP_SELF']);
+
+// Get current language from session or default to English
+$current_lang = $_SESSION['selected_lang'] ?? 'en';
 ?>
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<header class="top-header">
-  <div class="container" data-translate="Welcome to Ormoc Car Rental - Call us at (956) 783-3665">
-    Welcome to Ormoc Car Rental - Call us at (956) 783-3665
-  </div>
-</header>
 <header class="main-header">  
   <div class="header-left">  
     <!-- Hamburger Menu -->  
@@ -34,9 +37,9 @@ if ($userId && isset($dbh)) {
       <li style="position:relative;">
         <!-- Manage Bookings Link -->
         <?php if (isset($_SESSION['login']) && !empty($_SESSION['login'])): ?>
-          <a href="manage_booking.php" data-translate="Manage bookings"><i class="fa fa-car"></i> Manage bookings</a>
+          <a href="manage_booking.php" data-translate="Manage Bookings"><i class="fa fa-car"></i> <span data-translate="Manage Bookings">Manage Bookings</span></a>
         <?php else: ?>
-          <a href="javascript:void(0);" onclick="toggleLoginForm()" data-translate="Manage bookings"><i class="fa fa-car"></i> Manage bookings</a>
+          <a href="javascript:void(0);" onclick="toggleLoginForm()" data-translate="Manage Bookings"><i class="fa fa-car"></i> <span data-translate="Manage Bookings">Manage Bookings</span></a>
         <?php endif; ?>
       </li>  
       <li style="position:relative;">
@@ -122,20 +125,47 @@ if ($userId && isset($dbh)) {
       if (isset($_SESSION['login']) && !empty($_SESSION['login'])): ?>  
         <!-- Dropdown Menu for Dashboard -->  
         <li class="dropdown">  
-          <a href="javascript:void(0);" class="dropbtn"><i class="fas fa-user"></i> <?php echo htmlspecialchars($_SESSION['fname']); ?>'s Dashboard ▼</a>  
+          <a href="javascript:void(0);" class="dropbtn">
+            <i class="fas fa-user"></i> 
+            <span><?php echo htmlspecialchars($_SESSION['fname']); ?>'s</span>
+            <span data-translate="Dashboard">Dashboard</span> ▼
+          </a>  
           <div class="dropdown-content">  
             <a href="profile.php" data-translate="Profile Settings">Profile Settings</a>  
             <a href="activity_log.php" data-translate="Activity Log">Activity Log</a>  
-            <a href="logout.php" data-translate="Logout"><i class="fas fa-sign-out-alt"></i> Logout</a>  
+            <a href="logout.php" data-translate="Logout"><i class="fas fa-sign-out-alt"></i> <span data-translate="Logout">Logout</span></a>  
           </div>  
         </li>  
       <?php else: ?>  
-        <!-- Show the Login and Register links if not logged in -->  
-        <li><a href="javascript:void(0);" onclick="toggleLoginForm()" data-translate="Log in | Register"><i class="fas fa-user"></i> Log in | Register</a></li>  
+        <!-- Show different navigation based on current page -->  
+        <li>
+          <a href="javascript:void(0);" onclick="toggleLoginForm()" data-translate="Log in">
+            <i class="fas fa-sign-in-alt"></i> <span data-translate="Log in">Log in</span>
+          </a>
+        </li>
+        <?php if ($current_page === 'register.php'): ?>
+        <li>
+          <a href="index.php" data-translate="Homepage">
+            <i class="fas fa-home"></i> <span data-translate="Homepage">Homepage</span>
+          </a>
+        </li>
+        <?php else: ?>
+        <li>
+          <a href="register.php" data-translate="Register">
+            <i class="fas fa-user-plus"></i> <span data-translate="Register">Register</span>
+          </a>
+        </li>
+        <?php endif; ?>
       <?php endif; ?>  
     </ul>  
-  </nav>  
+  </nav> 
 </header>  
+
+<header class="top-header">
+  <div class="container" data-translate="Welcome to Ormoc Car Rental - Call us at (956) 783-3665">
+    Welcome to Ormoc Car Rental - Call us at (956) 783-3665
+  </div>
+</header>
 
 <!-- Sidebar Hamburger Menu -->  
 <div id="mobileMenu" class="sidebar">  
@@ -148,8 +178,25 @@ if ($userId && isset($dbh)) {
     <li><a href="explore.php" onclick="toggleMenu()" data-translate="Explore Us">Explore Us</a></li>  
     <li><a href="about.php" onclick="toggleMenu()" data-translate="About">About</a></li>  
     <li><a href="contact.php" onclick="toggleMenu()" data-translate="Contact Us">Contact Us</a></li>  
-    <li><a href="rrj.php" onclick="toggleMenu()" data-translate="RRJ Car Subscription">RRJ<br><small data-translate="Car Subscription">Car Subscription</small></a></li>  
+    <li>
+      <a href="rrj.php" onclick="toggleMenu()">
+        <span data-translate="RRJ">RRJ</span><br>
+        <small data-translate="Car Subscription">Car Subscription</small>
+      </a>
+    </li>  
     <li><a href="business.php" onclick="toggleMenu()" data-translate="Business">Business</a></li>  
+    <?php if (!isset($_SESSION['login']) || empty($_SESSION['login'])): ?>
+    <li>
+      <a href="javascript:void(0);" onclick="toggleLoginForm(); toggleMenu();" data-translate="Log in">
+        <i class="fas fa-sign-in-alt"></i> <span data-translate="Log in">Log in</span>
+      </a>
+    </li>
+    <li>
+      <a href="javascript:void(0);" onclick="toggleRegisterForm(); toggleMenu();" data-translate="Register">
+        <i class="fas fa-user-plus"></i> <span data-translate="Register">Register</span>
+      </a>
+    </li>
+    <?php endif; ?>
   </ul>  
 </div>  
 
@@ -159,62 +206,151 @@ if ($userId && isset($dbh)) {
 </div>
 
 <script>
-function translateWithLibreTranslate(targetLang) {
-  document.querySelectorAll('[data-translate]').forEach(el => {
-    const original = el.getAttribute('data-translate');
-    fetch('https://libretranslate.de/translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        q: original,
-        source: 'en',
-        target: targetLang,
-        format: 'text'
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data && data.translatedText) {
-        el.innerHTML = data.translatedText;
-      }
-    });
-  });
+async function translatePage(targetLang) {
+    try {
+        console.log('Starting translation to:', targetLang);
+        const elements = document.querySelectorAll('[data-translate]');
+        console.log('Found elements to translate:', elements.length);
+        
+        if (elements.length === 0) {
+            console.warn('No translatable elements found. Make sure elements have data-translate attribute.');
+            return;
+        }
+
+        const textsToTranslate = [];
+        
+        elements.forEach(el => {
+            const original = el.getAttribute('data-translate');
+            if (original) {
+                textsToTranslate.push({
+                    element: el,
+                    text: original
+                });
+            }
+        });
+
+        console.log('Texts to translate:', textsToTranslate.length);
+
+        // Batch translate in groups of 10 to avoid overloading
+        const batchSize = 10;
+        for (let i = 0; i < textsToTranslate.length; i += batchSize) {
+            const batch = textsToTranslate.slice(i, i + batchSize);
+            console.log(`Processing batch ${i/batchSize + 1}:`, batch);
+            
+            try {
+                const response = await fetch('translate_batch.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        texts: batch.map(item => item.text),
+                        target_lang: targetLang
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+                }
+
+                const translations = await response.json();
+                console.log('Received translations:', translations);
+                
+                // Apply translations
+                translations.forEach((translation, index) => {
+                    if (translation.success) {
+                        batch[index].element.innerHTML = translation.text;
+                        console.log(`Translated "${batch[index].text}" to "${translation.text}"`);
+                    } else {
+                        console.error('Translation failed:', translation.error);
+                    }
+                });
+            } catch (error) {
+                console.error('Batch translation error:', error);
+            }
+        }
+    } catch (error) {
+        console.error('Translation error:', error);
+    }
 }
 
-// Dropdown logic
-const langSwitch = document.getElementById('lang-switch');
-const langDropdown = document.getElementById('lang-dropdown');
-langSwitch.addEventListener('click', function(e) {
-  e.preventDefault();
-  langDropdown.style.display = langDropdown.style.display === 'block' ? 'none' : 'block';
-});
-document.addEventListener('click', function(e) {
-  if (!langSwitch.contains(e.target) && !langDropdown.contains(e.target)) {
-    langDropdown.style.display = 'none';
-  }
-});
-langDropdown.querySelectorAll('a[data-langcode]').forEach(function(link) {
-  link.addEventListener('click', function(e) {
-    e.preventDefault();
-    const langCode = this.getAttribute('data-langcode');
-    localStorage.setItem('selectedLang', langCode);
-    translateWithLibreTranslate(langCode);
-    langDropdown.style.display = 'none';
-    langSwitch.innerHTML = '🌐 ' + this.textContent + ' <i class="fa fa-caret-down"></i>';
-  });
-});
+// Language switcher functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const langSwitch = document.getElementById('lang-switch');
+    const langDropdown = document.getElementById('lang-dropdown');
 
-// On page load, auto-apply selected language
-window.addEventListener('DOMContentLoaded', function() {
-  const savedLang = localStorage.getItem('selectedLang');
-  if(savedLang && savedLang !== 'en') {
-    // Find the language name for the switcher
-    const langLink = document.querySelector(`#lang-dropdown a[data-langcode="${savedLang}"]`);
-    if(langLink) {
-      langSwitch.innerHTML = '🌐 ' + langLink.textContent + ' <i class="fa fa-caret-down"></i>';
+    if (!langSwitch || !langDropdown) {
+        console.error('Language switcher elements not found!');
+        return;
     }
-    translateWithLibreTranslate(savedLang);
-  }
+
+    // Toggle dropdown
+    langSwitch.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        langDropdown.style.display = langDropdown.style.display === 'block' ? 'none' : 'block';
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!langSwitch.contains(e.target) && !langDropdown.contains(e.target)) {
+            langDropdown.style.display = 'none';
+        }
+    });
+
+    // Handle language selection
+    langDropdown.querySelectorAll('a[data-langcode]').forEach(function(link) {
+        link.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const langCode = this.getAttribute('data-langcode');
+            const langName = this.textContent;
+            
+            console.log('Language selected:', langCode, langName);
+            
+            try {
+                // Update UI
+                langSwitch.innerHTML = '🌐 ' + langName + ' <i class="fa fa-caret-down"></i>';
+                langDropdown.style.display = 'none';
+                
+                // Save preference
+                localStorage.setItem('selectedLang', langCode);
+                
+                // Update server
+                const response = await fetch('update_language.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ lang: langCode })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update language preference on server');
+                }
+
+                // Translate page
+                await translatePage(langCode);
+            } catch (error) {
+                console.error('Language change error:', error);
+            }
+        });
+    });
+
+    // Apply saved language on page load
+    const savedLang = localStorage.getItem('selectedLang');
+    if (savedLang && savedLang !== 'en') {
+        console.log('Applying saved language:', savedLang);
+        const langLink = document.querySelector(`#lang-dropdown a[data-langcode="${savedLang}"]`);
+        if (langLink) {
+            langSwitch.innerHTML = '🌐 ' + langLink.textContent + ' <i class="fa fa-caret-down"></i>';
+            translatePage(savedLang).catch(error => {
+                console.error('Error applying saved language:', error);
+            });
+        }
+    }
 });
 
 function toggleMenu() {
@@ -223,11 +359,16 @@ function toggleMenu() {
 }
 
 function toggleLoginForm() {
-  var form = document.getElementById('login-form-container');
-  if (form.style.display === 'none' || form.style.display === '') {
-    form.style.display = 'block';
+  window.location.href = 'login.php';
+}
+
+function toggleRegisterForm() {
+  // Check current page
+  const currentPage = window.location.pathname.split('/').pop();
+  if (currentPage === 'register.php') {
+    window.location.href = 'index.php';
   } else {
-    form.style.display = 'none';
+    window.location.href = 'register.php';
   }
 }
 </script>
@@ -238,16 +379,21 @@ function toggleLoginForm() {
 .top-header {  
   background-color: #004153;  
   color: white;  
-  padding: 4px 0 2px 0; /* Reduced vertical padding */  
+  padding: 4px 0 2px 0;
   font-size: 15px;  
   text-align: center;  
   margin: 0;  
-  border: 0;  
+  border: 0;
+  position: fixed;
+  width: 100%;
+  top: 64px; /* Height of main-header */
+  z-index: 998;
 }  
 
 body {  
   margin: 0;  
-  padding: 0;  
+  padding: 0;
+  padding-top: 90px; /* Combined height of both headers */
 }  
 
 /* ================= Main Header ================= */  
@@ -257,8 +403,15 @@ body {
   display: flex;  
   align-items: center;  
   justify-content: space-between;  
-  padding: 6px 20px 6px 20px; /* Reduced vertical padding */  
-  min-height: unset;  
+  padding: 6px 20px;
+  min-height: unset;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+  z-index: 999;
+  box-sizing: border-box;
+  height: 64px;
 }  
 
 .header-left {  

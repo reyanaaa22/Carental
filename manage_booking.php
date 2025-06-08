@@ -1,5 +1,7 @@
 <?php
 ob_start(); // Start output buffering
+session_start(); // Ensure session is started
+
 
 include('header.php'); // Ensure header.php includes session_start()
 include('db.php');
@@ -23,6 +25,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'cancel' && isset($_GET['id'])
         // Update status to 2 (Cancelled)
         $stmtCancel = $dbh->prepare("UPDATE bookings SET Status = 2 WHERE id = ? AND UserID = ?");
         $stmtCancel->execute([$bookingId, $userId]);
+        
+        // Log the booking cancellation
+        logUserActivity($dbh, $userId, 'booking_cancel', ['booking_id' => $bookingId]);
         
         // Redirect back to manage_booking.php
         header('Location: manage_booking.php?cancelled=1');
@@ -54,6 +59,32 @@ $stmt = $dbh->prepare("
 $stmt->bindParam(':uid', $userId, PDO::PARAM_INT);
 $stmt->execute();
 $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// In the modify booking section
+if (isset($_GET['action']) && $_GET['action'] === 'modify' && isset($_GET['id'])) {
+    $bookingId = intval($_GET['id']);
+    $userId = $_SESSION['user_id'];
+    
+    // Verify booking belongs to the user
+    $stmtVerify = $dbh->prepare("SELECT id FROM bookings WHERE id = ? AND UserID = ? AND Status = 0");
+    $stmtVerify->execute([$bookingId, $userId]);
+    
+    if ($stmtVerify->rowCount() > 0) {
+        // Update status to 2 (Cancelled)
+        $stmtModify = $dbh->prepare("UPDATE bookings SET FromDate = ?, ToDate = ? WHERE id = ? AND UserID = ?");
+        $stmtModify->execute([$new_fromdate, $new_todate, $bookingId, $userId]);
+        
+        // Log the booking modification
+        logUserActivity($dbh, $userId, 'booking_modify', ['booking_id' => $bookingId]);
+        
+        // Redirect back to manage_booking.php
+        header('Location: manage_booking.php?modified=1');
+        exit;
+    } else {
+        header('Location: manage_booking.php?error=1');
+        exit;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -72,7 +103,7 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
         /* Styling for the profile and bookings section */
         .profile-container {
             max-width: 1200px;
-            margin: 40px auto;
+            margin: 80px auto;
             padding: 20px;
             background: #f9f9f9;
             border-radius: 10px;
@@ -192,12 +223,7 @@ $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div class="booking-message">
                                 Message: <?= htmlentities($booking['message']) ?>
                             </div>
-                            <div class="booking-actions mt-2">
-                                <?php if ($booking['Status'] == 0): ?>
-                                    <a href="admin/manage_bookings.php?action=approve&id=<?= $booking['id'] ?>" class="btn btn-success btn-sm me-2" onclick="return confirm('Are you sure you want to approve this booking?')">Approve</a>
-                                    <a href="admin/manage_bookings.php?action=cancel&id=<?= $booking['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to cancel this booking?')">Cancel</a>
-                                <?php endif; ?>
-                            </div>
+
                         </div>
                     </div>
                 <?php endforeach; ?>

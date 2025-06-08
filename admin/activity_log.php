@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db.php'; // Ensure the correct path to db.php
+include '../db.php'; // Ensure the correct path to db.php
 include('includes/header.php');
 include('includes/sidebar.php');
 
@@ -12,12 +12,23 @@ if (!isset($_SESSION['admin_id'])) {
 
 $admin_id = $_SESSION['admin_id'];
 
-// Fetch activity logs
+// Fetch only the current admin's activity logs
 $sql = "SELECT activity_log.action, activity_log.timestamp, admin.first_name, admin.last_name 
         FROM activity_log 
         INNER JOIN admin ON activity_log.admin_id = admin.id 
+        WHERE activity_log.admin_id = ?
         ORDER BY activity_log.timestamp DESC";
-$result = $conn->query($sql);
+
+$stmt = $dbh->prepare($sql);
+$stmt->execute([$admin_id]);
+$logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Get admin name for the title
+$admin_sql = "SELECT first_name, last_name FROM admin WHERE id = ?";
+$admin_stmt = $dbh->prepare($admin_sql);
+$admin_stmt->execute([$admin_id]);
+$admin = $admin_stmt->fetch(PDO::FETCH_ASSOC);
+$admin_name = $admin ? htmlspecialchars($admin['first_name'] . ' ' . $admin['last_name']) : 'Admin';
 ?>
 
 <!DOCTYPE html>
@@ -25,22 +36,22 @@ $result = $conn->query($sql);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Log</title>
+    <title>My Activity Log</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-         html, body {
+        html, body {
             height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden;
         }
 
-         header {
+        header {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 60px; /* Adjusted header height */
+            height: 60px;
             z-index: 999;
             background-color: #004153;
             display: flex;
@@ -51,10 +62,9 @@ $result = $conn->query($sql);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-
         .sidebar {
             position: fixed;
-            top: 100px; /* height f the header */
+            top: 100px;
             left: 0;
             width: 250px;
             height: calc(100vh - 100px);
@@ -73,50 +83,86 @@ $result = $conn->query($sql);
             padding: 20px;
             background-color: #ffffff;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
         }
+
         table th, table td {
-            padding: 10px;
+            padding: 12px 16px;
             text-align: left;
             border: 1px solid #ddd;
         }
+
         table th {
             background-color: #004153;
             color: #fff;
+            font-weight: 600;
+        }
+
+        table tr:hover td {
+            background-color: #f5f5f5;
+        }
+
+        .page-title {
+            color: #004153;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-title i {
+            font-size: 24px;
+        }
+
+        .no-activities {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            font-size: 16px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
 <div class="main-content">
-    <h2 class="text-center">Admin Activity Log</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Admin Name</th>
-                <th>Action</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ($result->num_rows > 0): ?>
-                <?php while ($row = $result->fetch_assoc()): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></td>
-                        <td><?= htmlspecialchars($row['action']) ?></td>
-                        <td><?= htmlspecialchars($row['timestamp']) ?></td>
-                    </tr>
-                <?php endwhile; ?>
-            <?php else: ?>
+    <h2 class="page-title">
+        <i class="fas fa-history"></i>
+        Activity Log - <?php echo $admin_name; ?>
+    </h2>
+    
+    <?php if (empty($logs)): ?>
+        <div class="no-activities">
+            <i class="fas fa-info-circle"></i> No activities found.
+        </div>
+    <?php else: ?>
+        <table class="table table-hover">
+            <thead>
                 <tr>
-                    <td colspan="3" class="text-center">No activity logs found.</td>
+                    <th>Action</th>
+                    <th>Timestamp</th>
                 </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($logs as $log): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($log['action']) ?></td>
+                        <td><?= htmlspecialchars($log['timestamp']) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://kit.fontawesome.com/yourfontawesomekit.js" crossorigin="anonymous"></script>
 </body>
 </html>

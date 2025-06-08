@@ -53,29 +53,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
             $target_dir = "uploads/";
             if (!is_dir($target_dir)) {
-                mkdir($target_dir, 0777, true);
+                if (!mkdir($target_dir, 0777, true)) {
+                    throw new Exception("Failed to create uploads directory. Please check permissions.");
+                }
+            }
+            
+            if (!is_writable($target_dir)) {
+                throw new Exception("Uploads directory is not writable. Please check permissions.");
             }
             
             $file_extension = strtolower(pathinfo($_FILES['profile_image']['name'], PATHINFO_EXTENSION));
             $new_filename = 'profile_' . $admin_id . '_' . time() . '.' . $file_extension;
             $target_file = $target_dir . $new_filename;
             
-            // Validate file type
+            // Validate file type and MIME type
             $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
-            if (in_array($file_extension, $allowed_types)) {
-                if (move_uploaded_file($_FILES['profile_image']['tmp_name'], $target_file)) {
-                    // Delete old profile image if it exists and is not the default image
-                    if (!empty($row['profile_image']) && file_exists($row['profile_image']) && 
-                        strpos($row['profile_image'], 'default-profile.png') === false) {
-                        unlink($row['profile_image']);
-                    }
-                    $profile_image = $target_file;
-                    $update_image = true;
-                } else {
-                    throw new Exception("Failed to upload profile image.");
+            $allowed_mimes = ['image/jpeg', 'image/png', 'image/gif'];
+            
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $_FILES['profile_image']['tmp_name']);
+            finfo_close($finfo);
+            
+            if (!in_array($file_extension, $allowed_types) || !in_array($mime_type, $allowed_mimes)) {
+                throw new Exception("Only JPG, JPEG, PNG, and GIF files are allowed. Detected MIME type: " . $mime_type);
+            }
+            
+            // Validate file size (max 5MB)
+            if ($_FILES['profile_image']['size'] > 5 * 1024 * 1024) {
+                throw new Exception("File is too large. Maximum size is 5MB.");
+            }
+            
+            if (move_uploaded_file($_FILES['profile_image']['tmp_name'], $target_file)) {
+                // Delete old profile image if it exists and is not the default image
+                if (!empty($row['profile_image']) && file_exists($row['profile_image']) && 
+                    strpos($row['profile_image'], 'default-profile.png') === false) {
+                    unlink($row['profile_image']);
                 }
+                $profile_image = $target_file;
+                $update_image = true;
             } else {
-                throw new Exception("Only JPG, JPEG, PNG, and GIF files are allowed.");
+                $upload_error = error_get_last();
+                throw new Exception("Failed to upload profile image. Error: " . ($upload_error['message'] ?? 'Unknown error'));
             }
         }
 
@@ -135,12 +153,18 @@ if (isset($_SESSION['success_message'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            background-color: #f8f9fa;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, #004153 0%, #006080 100%);
         }
 
         .main-content {
@@ -150,122 +174,216 @@ if (isset($_SESSION['success_message'])) {
             width: calc(100% - 250px);
             height: calc(100vh - 70px);
             overflow-y: auto;
-            padding: 30px;
-            background-color: #f8f9fa;
+            padding: 40px;
+            background: transparent;
+            z-index: 1;
+        }
+
+        /* Animated bubbles */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            animation: float 8s infinite ease-in-out;
+            z-index: 0;
+        }
+
+        .bubble:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 20%;
+            left: 10%;
+            background: rgba(0, 255, 204, 0.18);
+            animation-delay: 0s;
+        }
+
+        .bubble:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            top: 60%;
+            left: 20%;
+            background: rgba(0, 153, 255, 0.15);
+            animation-delay: 2s;
+        }
+
+        .bubble:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            top: 30%;
+            left: 80%;
+            background: rgba(255, 255, 255, 0.12);
+            animation-delay: 4s;
+        }
+
+        .bubble:nth-child(4) {
+            width: 100px;
+            height: 100px;
+            top: 75%;
+            left: 60%;
+            background: rgba(0, 255, 153, 0.13);
+            animation-delay: 1s;
+        }
+
+        .bubble:nth-child(5) {
+            width: 90px;
+            height: 90px;
+            top: 10%;
+            left: 50%;
+            background: rgba(0, 255, 204, 0.10);
+            animation-delay: 3s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-40px) scale(1.1);
+            }
         }
 
         .profile-card {
-            background: white;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.05);
-            padding: 20px;
-            max-width: 800px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            max-width: 900px;
             margin: 0 auto;
+            position: relative;
+            z-index: 1;
         }
 
         .profile-header {
             text-align: center;
-            margin-bottom: -20px;
+            margin-bottom: 30px;
         }
 
         .profile-title {
             color: #004153;
-            font-size: 32px;
+            font-size: 36px;
             font-weight: 600;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
 
         .profile-container {
             position: relative;
-            width: 150px;
-            margin: 0 auto 30px;
+            width: 180px;
+            margin: 0 auto 40px;
         }
 
         .profile-container img {
-            width: 150px;
-            height: 150px;
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid #004153;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border: 4px solid #004153;
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
         }
 
         .profile-container .camera-icon {
             position: absolute;
-            bottom: 5px;
-            right: 5px;
+            bottom: 10px;
+            right: 10px;
             background-color: #004153;
             color: #fff;
             border-radius: 50%;
-            padding: 8px;
+            padding: 12px;
             cursor: pointer;
-            font-size: 18px;
-            border: 2px solid #fff;
+            font-size: 22px;
+            border: 3px solid #fff;
             transition: all 0.3s ease;
-        }
-
-        .profile-container .camera-icon:hover {
-            background-color: #005f7a;
-            transform: scale(1.1);
-        }
-
-        .profile-container input[type="file"] {
-            display: none;
         }
 
         .form-label {
             font-weight: 600;
             color: #004153;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            font-size: 16px;
         }
 
         .form-control, .form-select {
             border: 1px solid #ced4da;
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 14px;
             height: auto;
             font-size: 16px;
             transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
         }
 
         .form-control:focus, .form-select:focus {
             border-color: #004153;
-            box-shadow: 0 0 0 0.2rem rgba(0,65,83,0.25);
+            box-shadow: 0 0 0 0.25rem rgba(0,65,83,0.25);
+            background: #fff;
         }
 
         .btn-primary {
-            background-color: #004153;
+            background: linear-gradient(90deg, #004153 0%, #006080 100%);
             border: none;
-            padding: 12px 30px;
-            font-size: 16px;
-            border-radius: 8px;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 10px;
             transition: all 0.3s ease;
+            font-weight: 600;
         }
 
         .btn-primary:hover {
-            background-color: #005f7a;
+            background: linear-gradient(90deg, #006080 0%, #004153 100%);
             transform: translateY(-2px);
         }
 
         .form-section {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
         }
 
         .section-title {
             color: #004153;
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 600;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(0,65,83,0.1);
         }
 
         .alert {
-            border-radius: 8px;
-            padding: 15px 20px;
+            border-radius: 10px;
+            padding: 18px 25px;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                left: 0;
+                width: 100%;
+                padding: 20px;
+            }
+
+            .profile-card {
+                margin: 0 10px;
+            }
+
+            .profile-title {
+                font-size: 28px;
+            }
+
+            .profile-container {
+                width: 150px;
+            }
+
+            .profile-container img {
+                width: 150px;
+                height: 150px;
+            }
+
+            .form-section {
+                padding: 20px;
+            }
         }
 
         /* Override header profile image size */
@@ -295,6 +413,15 @@ if (isset($_SESSION['success_message'])) {
 </head>
 <body>
 <div class="main-content">
+    <!-- Add bubbles -->
+    <div class="bubbles">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+    
     <div class="profile-card">
         <div class="profile-header">
             <h2 class="profile-title">Profile Settings</h2>
@@ -382,6 +509,23 @@ if (isset($_SESSION['success_message'])) {
 <script>
     // Preview the uploaded profile image
     function previewImage(event) {
+        const file = event.target.files[0];
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPG, PNG, or GIF)');
+            event.target.value = ''; // Clear the file input
+            return;
+        }
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File is too large. Maximum size is 5MB.');
+            event.target.value = ''; // Clear the file input
+            return;
+        }
+        
         const reader = new FileReader();
         reader.onload = function () {
             // Update the form preview
@@ -394,20 +538,39 @@ if (isset($_SESSION['success_message'])) {
                 headerImg.src = reader.result;
             }
         };
-        reader.readAsDataURL(event.target.files[0]);
+        reader.onerror = function() {
+            alert('Error reading the image file. Please try again.');
+            event.target.value = ''; // Clear the file input
+        };
+        reader.readAsDataURL(file);
     }
 
     // If there was a successful update, refresh all profile images
     <?php if (isset($success)): ?>
     window.onload = function() {
         const profileImage = "<?php echo htmlspecialchars($profile_image); ?>";
-        // Update header profile image with cache-busting
-        const headerImg = document.querySelector('header .profile-container img');
-        if (headerImg) {
-            headerImg.src = profileImage + '?t=' + new Date().getTime();
-        }
+        const timestamp = new Date().getTime();
+        
+        // Update both profile images with cache-busting
+        const images = [
+            document.getElementById('profilePreview'),
+            document.querySelector('header .profile-container img')
+        ];
+        
+        images.forEach(img => {
+            if (img) {
+                img.src = profileImage + '?t=' + timestamp;
+            }
+        });
     };
     <?php endif; ?>
+
+    // Add form submission handling
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving Changes...';
+    });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
